@@ -1,0 +1,27 @@
+# A release for every new version: when a push to main or Beta carries a version of the integration (manifest.json) that has no release
+# yet, this makes it. A version with a "b" (0.2.0b5) is a pre-release, so HACS offers it only with "Show beta versions" on. The notes are
+# the commit's message.
+name: Release
+on:
+  push:
+    branches: [main, Beta]
+    paths: ["custom_components/cleanyourtv/manifest.json"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release the version of manifest.json if it has none
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(python3 -c "import json;print(json.load(open('custom_components/cleanyourtv/manifest.json'))['version'])")
+          tag="v$v"
+          if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists"; exit 0; fi
+          pre=""
+          case "$v" in *b*|*a*|*rc*) pre="--prerelease" ;; esac
+          git log -1 --format=%B | grep -v -e '^Co-Authored-By:' -e '^Claude-Session:' > notes.md
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$v" --notes-file notes.md $pre
