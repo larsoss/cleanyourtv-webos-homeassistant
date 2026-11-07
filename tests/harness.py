@@ -18,17 +18,15 @@ class Addon:
     def __init__(self) -> None:
         self.proc: asyncio.subprocess.Process | None = None
         self.port = 0
-        self.code = ""
         self.events: list[dict] = []
         self._new = asyncio.Event()
         self._reader: asyncio.Task | None = None
 
-    async def start(self) -> Addon:
-        self.proc = await asyncio.create_subprocess_exec(
-            "node", str(HERE / "addon_harness.js"), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
+    async def start(self, closed: bool = False) -> Addon:
+        args = [str(HERE / "addon_harness.js")] + (["--closed"] if closed else [])
+        self.proc = await asyncio.create_subprocess_exec("node", *args, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         first = json.loads(await asyncio.wait_for(self.proc.stdout.readline(), 15))
-        self.port, self.code = first["port"], first["code"]
+        self.port = first["port"]
         self._reader = asyncio.create_task(self._read())
         return self
 
@@ -60,10 +58,15 @@ class Addon:
 
         return await asyncio.wait_for(loop(), timeout)
 
-    async def new_code(self) -> str:
+    async def open_pairing(self) -> None:
         n = len(self.events)
         await self.command("pair")
-        return (await self.wait_for(lambda e: e.get("ev") == "code", start=n))["code"]
+        await self.wait_for(lambda e: e.get("ev") == "open", start=n)
+
+    async def run(self, cmd: str, ev: str) -> dict:
+        n = len(self.events)
+        await self.command(cmd)
+        return await self.wait_for(lambda e: e.get("ev") == ev, start=n)
 
     async def stop(self) -> None:
         if self._reader:

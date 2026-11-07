@@ -1,12 +1,19 @@
 {
   "domain": "cleanyourtv",
   "name": "CleanYourTV",
-  "codeowners": ["@larsoss"],
+  "codeowners": [
+    "@larsoss"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/larsoss/cleanyourtv-webos-homeassistant",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/larsoss/cleanyourtv-webos-homeassistant/issues",
   "requirements": [],
+  "ssdp": [
+    {
+      "st": "urn:lge-com:service:webos-second-screen:1"
+    }
+  ],
   "version": "0.1.0"
 }

@@ -1,7 +1,8 @@
 """Talks to the Home Assistant add-on of CleanYourTV on the TV (tv-addon/catalog/homeassistant in this repository).
 
 The add-on listens on port 8801 of the TV while a Home Assistant is paired (or the pairing window is open):
-  POST /api/pair {code, name}         -> {token, name}; the code is on the add-on's page on the TV
+  GET  /api/hello                     -> {service: 'cleanyourtv-homeassistant', version, open}: is the add-on there, would it pair now
+  POST /api/pair {name}               -> {token, name}: while "Pair Home Assistant" is open on the TV (or "Pair without asking" is on)
   GET  /api/state?since=<seq>         -> waits until something changed, then the whole state (a long poll: the TV pushes)
   POST /api/action {t, ...}           -> {ok, error}
   GET  /api/apps | inputs | channels  -> the lists; /api/logo/<n> and /api/icon/<id> are pictures
@@ -50,18 +51,31 @@ class CytvAuthError(CytvError):
 
 
 class CytvPairError(CytvError):
-    """Pairing was refused; reason: not_waiting, wrong_code, too_many_tries, too_many_devices or unknown."""
+    """Pairing was refused; reason: not_waiting, too_many_tries, too_many_devices or unknown."""
 
     def __init__(self, reason: str, message: str = "") -> None:
         super().__init__(message or reason)
         self.reason = reason
 
 
-async def async_pair(session: aiohttp.ClientSession, host: str, port: int, code: str, name: str) -> tuple[str, str]:
-    """Pair with the code the TV shows; returns (token, the name the TV keeps for this Home Assistant)."""
+async def async_hello(session: aiohttp.ClientSession, host: str, port: int = DEFAULT_PORT) -> dict[str, Any]:
+    """Whether the TV runs the add-on: {service, version, open}; raises CytvError when it does not answer as the add-on."""
+    try:
+        async with asyncio.timeout(5):
+            async with session.get(f"http://{host}:{port}/api/hello") as resp:
+                body = await resp.json(content_type=None)
+    except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as err:
+        raise CytvError(f"cannot reach {host}:{port}: {err}") from err
+    if not isinstance(body, dict) or body.get("service") != "cleanyourtv-homeassistant":
+        raise CytvError(f"{host}:{port} is not the CleanYourTV Home Assistant add-on")
+    return body
+
+
+async def async_pair(session: aiohttp.ClientSession, host: str, port: int, name: str) -> tuple[str, str]:
+    """Pair while the TV waits ("Pair Home Assistant" on its page); returns (token, the name the TV keeps for this Home Assistant)."""
     try:
         async with asyncio.timeout(10):
-            async with session.post(f"http://{host}:{port}/api/pair", json={"code": str(code).strip(), "name": name}) as resp:
+            async with session.post(f"http://{host}:{port}/api/pair", json={"name": name}) as resp:
                 status = resp.status
                 body = await resp.json(content_type=None)
     except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as err:
@@ -74,8 +88,8 @@ async def async_pair(session: aiohttp.ClientSession, host: str, port: int, code:
         raise CytvPairError("too_many_tries", msg)
     if status == 409:
         raise CytvPairError("too_many_devices", msg)
-    if status == 403 and body.get("reason") in ("not_waiting", "wrong_code"):
-        raise CytvPairError(body["reason"], msg)
+    if status == 403 and body.get("reason") == "not_waiting":
+        raise CytvPairError("not_waiting", msg)
     raise CytvPairError("unknown", msg)
 
 

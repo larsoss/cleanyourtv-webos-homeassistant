@@ -1,14 +1,19 @@
 // Home Assistant: the TV tells Home Assistant what it is doing, the moment it changes, and Home Assistant controls the TV.
-// The integration (custom_components/cleanyourtv in this repository) pairs once with a 6-digit code that this add-on's page shows, then:
+// The integration (custom_components/cleanyourtv in this repository) finds the TV by itself (LG's SSDP announcement, then /api/hello) and
+// pairs once: while "Pair Home Assistant" is open on this add-on's page (three minutes, like the button of a Hue bridge), or at any time
+// when "Pair without asking" is on. Then:
+//   GET  /api/hello                   no token: {service: 'cleanyourtv-homeassistant', version, open, mac, model} (open: it would pair now)
+//   POST /api/pair {name}             -> {token, name}
 //   GET  /api/state?since=<seq>       waits (up to 25 s) until something changed after <seq>, then answers the whole state:
 //                                     {seq, power, app, media: {state, appId}, volume: {level, max, mute, output}, live, name}
 //   POST /api/action {t, ...}         key, text, del, enter, move, click, scroll, launch, live, tvpower, volume, mute
 //   GET  /api/apps | /api/inputs | /api/channels | /api/logo/<number> | /api/icon/<app id>
 //   POST /api/unpair                  Home Assistant forgets this TV: its token stops working
-// Every call but /api/pair carries "Authorization: Bearer <token>". The LAN listener (port 8801) runs while the add-on is on.
+// Every call but /api/hello and /api/pair carries "Authorization: Bearer <token>". The LAN listener (port 8801) runs while the add-on is on.
 // The add-on's own page (index.html) asks, through the loader at /api/addons/homeassistant:
-//   GET /status        the pairing window, the paired Home Assistants, what the TV reports now
-//   POST /pair         opens the pairing window (a 6-digit code, three minutes); POST /pair {stop:true} closes it
+//   GET /status        the pairing window, "pair without asking", the paired Home Assistants, what the TV reports now
+//   POST /pair         opens the pairing window (three minutes); POST /pair {stop:true} closes it
+//   POST /trust {on}   "Pair without asking": every Home Assistant on the network may pair (off by default)
 //   POST /revoke {id}  forgets one Home Assistant ({all:true}: every one)
 // What the TV reports comes from LG's own services, followed with luna-send subscriptions while a Home Assistant asked in the last two
 // minutes: the app in front (applicationManager), whether its video plays or is paused (com.webos.media: every app that plays through
@@ -29,7 +34,6 @@ const PORT = 8801, // after the Phone remote (8799) and the page that adds a rep
   WAIT_MS = 25000, // a long poll answers after this long even when nothing changed
   ACTIVE_MS = 2 * 60 * 1000, // the TV is followed while a Home Assistant asked this recently
   TRIES = 5, // pairing tries per address per minute
-  WRONG_MAX = 8,
   LIST_MS = 60000, // the playlist (for matching a stream) is read again after this long
   RATE = { burst: 40, perSecond: 20 }; // actions a client may send
 const TOKEN = /^([0-9a-f]{8})\.([0-9a-f]{32})$/;
@@ -47,6 +51,13 @@ const POWER = {
   shutdown: { m: 'shutDown', a: { reason: 'remoteKey' } },
 };
 const HOME = 'com.webos.app.home';
+const VERSION = (() => {
+  try {
+    return require('./addon.json').version;
+  } catch (_) {
+    return '';
+  }
+})();
 
 const sha = s => crypto.createHash('sha256').update(String(s)).digest();
 const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
@@ -367,10 +378,12 @@ function create(ctx, opts) {
   };
 
   // ---- pairing and tokens ----
-  let pair = null; // {code, until, wrong, timer}
+  let pair = null; // {until, timer}: the pairing window
   const tries = {};
+  const trusted = () => settings().trust === true;
+  const open = () => !!pair || trusted();
   function openPair() {
-    if (!pair) pair = { code: String(crypto.randomBytes(4).readUInt32BE(0) % 900000 + 100000), wrong: 0, timer: null };
+    if (!pair) pair = { timer: null };
     pair.until = Date.now() + PAIR_MS;
     clearTimeout(pair.timer);
     pair.timer = setTimeout(closePair, PAIR_MS);
@@ -389,17 +402,14 @@ function create(ctx, opts) {
     if (t.length >= TRIES) return [429, { error: 'Too many tries. Wait a minute.' }];
     t.push(now);
     tries[addr] = t;
-    if (!pair) return [403, { error: 'The TV is not waiting. Open the Home Assistant page on the TV.', reason: 'not_waiting' }];
-    if (typeof b.code !== 'string' || !same(b.code.trim(), pair.code)) {
-      if (++pair.wrong >= WRONG_MAX) closePair();
-      return [403, { error: 'That code is not right.', reason: 'wrong_code' }];
-    }
+    if (!open())
+      return [403, { error: 'The TV is not waiting. On the TV open the Home Assistant page and choose Pair Home Assistant.', reason: 'not_waiting' }];
     if (settings().clients.length >= MAX_CLIENTS) return [409, { error: 'Too many Home Assistants are paired. Remove one on the TV.' }];
     const id = crypto.randomBytes(4).toString('hex'),
       secret = crypto.randomBytes(16).toString('hex'),
       name = cleanName(b.name);
-    save(s => s.clients.push({ id, name, hash: sha(secret).toString('hex'), created: now, seen: now }));
-    closePair();
+    save(s => s.clients.push({ id, name, hash: sha(secret).toString('hex'), created: now, seen: now, addr }));
+    closePair(); // one Home Assistant per press, as with a Hue bridge
     console.log('homeassistant: ' + id + ' paired');
     return [200, { token: id + '.' + secret, name }];
   }
@@ -493,6 +503,9 @@ function create(ctx, opts) {
       q = req.url.split('?')[1] || '';
     const addr = String((req.socket && req.socket.remoteAddress) || '');
     if (req.headers.origin) return json(res, { error: 'forbidden' }, 403); // not for web pages: only Home Assistant calls this
+    // what Home Assistant's discovery asks: is the add-on here, would it pair now, and which TV it is (the MAC is no secret on the LAN)
+    if (req.method === 'GET' && u === '/api/hello')
+      return tvInfo().then(i => json(res, { service: 'cleanyourtv-homeassistant', version: VERSION, open: open(), mac: i.mac, model: i.model }));
     if (req.method === 'POST' && u === '/api/pair')
       return readBody(req).then(b => {
         const r = tryPair(addr, b);
@@ -643,8 +656,9 @@ function create(ctx, opts) {
       return json(res, {
         listening: !!(srv && srv.listening),
         address: lanIp() ? lanIp() + ':' + PORT : '',
-        pairing: pair ? { code: pair.code, until: pair.until } : null,
-        clients: settings().clients.map(c => ({ id: c.id, name: c.name, created: c.created, seen: c.seen })),
+        pairing: pair ? { until: pair.until } : null,
+        trust: trusted(),
+        clients: settings().clients.map(c => ({ id: c.id, name: c.name, created: c.created, seen: c.seen, addr: c.addr || '' })),
         now: pub(),
       });
     if (u === '/pair' && req.method === 'POST') {
@@ -652,7 +666,12 @@ function create(ctx, opts) {
       if (b.stop) closePair();
       else openPair();
       await listening();
-      return json(res, { pairing: pair ? { code: pair.code, until: pair.until } : null });
+      return json(res, { pairing: pair ? { until: pair.until } : null });
+    }
+    if (u === '/trust' && req.method === 'POST') {
+      const b = (await read()) || {};
+      ctx.settings.set({ trust: b.on === true });
+      return json(res, { trust: trusted() });
     }
     if (u === '/revoke' && req.method === 'POST') {
       const b = (await read()) || {};

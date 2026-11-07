@@ -32,7 +32,7 @@ The repository has two parts:
 | Part | Where | What |
 | --- | --- | --- |
 | **TV add-on "Home Assistant"** | `tv-addon/` (a CleanYourTV add-on repository) | Runs inside CleanYourTV's service on the TV. Follows LG's own services (app manager, `com.webos.media`, audio, power) with luna subscriptions while Home Assistant is connected, and answers on port 8801. |
-| **Integration "CleanYourTV"** | `custom_components/cleanyourtv` (HACS) | Pairs once with a 6-digit code, then keeps a long poll open: the TV answers the moment something changes. |
+| **Integration "CleanYourTV"** | `custom_components/cleanyourtv` (HACS) | Finds the TV by itself, pairs once (like a Hue bridge: no code to type), then keeps a long poll open: the TV answers the moment something changes. |
 
 The Live TV channel is found on the TV itself. The address of the stream that plays is matched against your playlist. That address can contain your provider's credentials, so it never leaves the TV: Home Assistant gets only the number, name, group, programme and logo.
 
@@ -61,10 +61,14 @@ The add-on and the integration together have not run on a TV yet. The tests run 
 ### 2. In Home Assistant: the integration
 
 1. HACS > the three dots > **Custom repositories**: add `https://github.com/larsoss/cleanyourtv-webos-homeassistant`, type **Integration**. Install **CleanYourTV** and restart Home Assistant.
-2. On the TV, open the add-on's page (**Home Assistant**, in the book next to Home) and choose **Pair Home Assistant**. It shows a 6-digit code for three minutes.
-3. In Home Assistant: **Settings > Devices & services > Add integration > CleanYourTV**. Enter the TV's IP address and the code.
+2. Home Assistant **finds the TV by itself**: **Settings > Devices & services** shows *CleanYourTV discovered*. LG TVs announce themselves on the network (SSDP), the same way LG's own webOS integration finds them, and the integration offers only a TV that runs the add-on. You can also add it by hand: **Add integration > CleanYourTV**, with the TV's IP address.
+3. Pair it like a Hue bridge, without a code: on the TV, open the add-on's page (**Home Assistant**, in the book next to Home) and choose **Pair Home Assistant**. Then, within three minutes, click **Submit** in Home Assistant.
 
-The add-on's page lists the paired Home Assistants and can remove one. If you remove Home Assistant there, Home Assistant asks you to pair again. If you delete the integration in Home Assistant, the TV forgets it too. If the TV gets a new IP address, use **Reconfigure**.
+   On the add-on's page, **Pair without asking** lets any Home Assistant on your network pair without step 3 on the TV. It is off by default and not recommended: any device on your network could then control the TV and see what you watch.
+
+   An **Allow / Deny** question on the TV, as LG's own integration asks, is planned. It needs the add-on to open its page by itself, which comes with CleanYourTV's "Open page" (pull request #201).
+
+The add-on's page lists the paired Home Assistants and can remove one. If you remove Home Assistant there, Home Assistant asks you to pair again. If you delete the integration in Home Assistant, the TV forgets it too. If the TV gets a new IP address, discovery updates it by itself (or use **Reconfigure**).
 
 To turn the TV on from standby, switch **TV On With Mobile** (Wake-on-LAN) on in the TV's settings, and best give the TV a fixed IP address. The packet goes to the TV's own address as well as a broadcast, so it also works over Wi-Fi.
 
@@ -296,5 +300,7 @@ Andersom bedient Home Assistant de tv: aan/uit, volume, afspelen/pauze, bron, al
 
 1. Op de tv: Add-ons > Repositories > `larsoss/cleanyourtv-webos-homeassistant@main/tv-addon`, en installeer daarna **Home Assistant**.
 2. In HACS: voeg deze repository toe als aangepaste repository (type Integratie) en installeer **CleanYourTV**.
-3. Op de tv: open de pagina van de add-on en kies **Home Assistant koppelen**.
-4. In Home Assistant: voeg **CleanYourTV** toe met het IP-adres van de tv en de code.
+3. Home Assistant vindt de tv vanzelf (*CleanYourTV gevonden*).
+4. Koppelen gaat zonder code: kies op de tv op de pagina van de add-on **Home Assistant koppelen**, en klik binnen drie minuten in Home Assistant op **Verzenden**.
+
+   **Koppelen zonder te vragen** op de pagina van de add-on slaat de stap op de tv over. Dat raad ik af, en het staat standaard uit.

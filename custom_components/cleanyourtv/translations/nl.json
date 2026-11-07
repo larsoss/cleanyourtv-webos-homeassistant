@@ -3,25 +3,32 @@
     "step": {
       "user": {
         "title": "Koppelen met de tv",
-        "description": "Installeer eerst de add-on Home Assistant op de tv (manager-app > Add-ons > Repositories > voeg larsoss/cleanyourtv-webos-homeassistant@main/tv-addon toe, installeer dan Home Assistant). Open op de tv de pagina van de add-on en kies Home Assistant koppelen: hij toont een code van 6 cijfers.",
+        "description": "Installeer eerst de add-on Home Assistant op de tv (manager-app > Add-ons > Repositories > voeg larsoss/cleanyourtv-webos-homeassistant@main/tv-addon toe, installeer daarna Home Assistant). Open dan op de tv de pagina van de add-on, kies Home Assistant koppelen, en klik hier binnen drie minuten op Verzenden.",
         "data": {
           "host": "Adres van de tv",
-          "code": "Code van de tv",
           "device_name": "Naam op de tv",
           "port": "Poort"
         },
         "data_description": {
           "host": "Het IP-adres van de tv, liefst een vast adres in je router.",
-          "code": "De 6 cijfers op het tv-scherm. Een code werkt één keer.",
           "device_name": "Onder deze naam staat Home Assistant op de pagina van de add-on.",
           "port": "8801, tenzij je het veranderd hebt."
         }
       },
+      "confirm": {
+        "title": "{name} gevonden",
+        "description": "{name} ({host}) heeft de CleanYourTV-add-on Home Assistant. Open op de tv de pagina van de add-on (Home Assistant), kies Home Assistant koppelen, en klik hier binnen drie minuten op Verzenden.",
+        "data": {
+          "device_name": "Naam op de tv"
+        },
+        "data_description": {
+          "device_name": "Onder deze naam staat Home Assistant op de pagina van de add-on."
+        }
+      },
       "reauth_confirm": {
         "title": "Opnieuw koppelen",
-        "description": "De tv op {host} accepteert Home Assistant niet meer (verwijderd op de tv). Open op de tv de pagina van de add-on Home Assistant, kies Home Assistant koppelen en vul de nieuwe code in.",
+        "description": "De tv op {host} accepteert Home Assistant niet meer (verwijderd op de tv). Open op de tv de pagina van de add-on Home Assistant, kies Home Assistant koppelen, en klik hier op Verzenden.",
         "data": {
-          "code": "Code van de tv",
           "device_name": "Naam op de tv"
         }
       },
@@ -38,14 +45,15 @@
       "too_many_tries": "Te veel pogingen. Wacht een minuut.",
       "too_many_devices": "Er zijn te veel Home Assistants gekoppeld. Verwijder er een op de tv.",
       "unknown": "Koppelen mislukt: {message}",
-      "not_waiting": "De tv wacht niet op een code. Open op de tv de pagina van de add-on Home Assistant en kies Home Assistant koppelen.",
-      "wrong_code": "Die code klopt niet. Controleer de 6 cijfers op de tv."
+      "not_waiting": "De tv wacht niet op Home Assistant. Open op de tv de pagina van de add-on en kies Home Assistant koppelen, klik daarna opnieuw op Verzenden."
     },
     "abort": {
       "already_configured": "Deze tv is al ingesteld.",
       "reauth_successful": "Opnieuw gekoppeld.",
-      "reconfigure_successful": "Het adres is opgeslagen."
-    }
+      "reconfigure_successful": "Het adres is opgeslagen.",
+      "not_cleanyourtv": "Op deze tv draait de CleanYourTV-add-on Home Assistant niet."
+    },
+    "flow_title": "{name}"
   },
   "options": {
     "step": {

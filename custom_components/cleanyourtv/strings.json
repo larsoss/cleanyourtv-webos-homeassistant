@@ -3,25 +3,32 @@
     "step": {
       "user": {
         "title": "Pair with the TV",
-        "description": "Install the Home Assistant add-on on the TV first (manager app > Add-ons > Repositories > add larsoss/cleanyourtv-webos-homeassistant@main/tv-addon, then install Home Assistant). On the TV open the add-on's page and choose Pair Home Assistant: it shows a 6-digit code.",
+        "description": "Install the Home Assistant add-on on the TV first (manager app > Add-ons > Repositories > add larsoss/cleanyourtv-webos-homeassistant@main/tv-addon, then install Home Assistant). Then, on the TV, open the add-on's page and choose Pair Home Assistant, and click Submit here within three minutes.",
         "data": {
           "host": "Address of the TV",
-          "code": "Code from the TV",
           "device_name": "Name on the TV",
           "port": "Port"
         },
         "data_description": {
           "host": "The IP address of the TV, best a fixed one in your router.",
-          "code": "The 6 digits on the TV screen. A code works once.",
           "device_name": "The TV lists Home Assistant under this name on the add-on's page.",
           "port": "8801 unless you changed it."
         }
       },
+      "confirm": {
+        "title": "{name} found",
+        "description": "{name} ({host}) runs the CleanYourTV Home Assistant add-on. On the TV, open the add-on's page (Home Assistant) and choose Pair Home Assistant, then click Submit here within three minutes.",
+        "data": {
+          "device_name": "Name on the TV"
+        },
+        "data_description": {
+          "device_name": "The TV lists Home Assistant under this name on the add-on's page."
+        }
+      },
       "reauth_confirm": {
         "title": "Pair again",
-        "description": "The TV at {host} no longer accepts Home Assistant (it was removed on the TV). On the TV open the Home Assistant add-on's page, choose Pair Home Assistant and enter the new code.",
+        "description": "The TV at {host} no longer accepts Home Assistant (it was removed on the TV). On the TV, open the Home Assistant add-on's page and choose Pair Home Assistant, then click Submit here.",
         "data": {
-          "code": "Code from the TV",
           "device_name": "Name on the TV"
         }
       },
@@ -38,14 +45,15 @@
       "too_many_tries": "Too many tries. Wait a minute.",
       "too_many_devices": "Too many Home Assistants are paired. Remove one on the TV.",
       "unknown": "Pairing failed: {message}",
-      "not_waiting": "The TV is not waiting for a code. On the TV open the Home Assistant add-on's page and choose Pair Home Assistant.",
-      "wrong_code": "That code is not right. Check the 6 digits on the TV."
+      "not_waiting": "The TV is not waiting for Home Assistant. On the TV, open the add-on's page and choose Pair Home Assistant, then click Submit again."
     },
     "abort": {
       "already_configured": "This TV is already set up.",
       "reauth_successful": "Paired again.",
-      "reconfigure_successful": "The address is saved."
-    }
+      "reconfigure_successful": "The address is saved.",
+      "not_cleanyourtv": "This TV does not run the CleanYourTV Home Assistant add-on."
+    },
+    "flow_title": "{name}"
   },
   "options": {
     "step": {

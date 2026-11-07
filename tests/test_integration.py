@@ -13,7 +13,8 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cleanyourtv.const import CONF_CODE, CONF_DEVICE_NAME, CONF_LIVE_SOURCES, CONF_MAC, CONF_TOKEN, DOMAIN
+from custom_components.cleanyourtv import config_flow
+from custom_components.cleanyourtv.const import CONF_DEVICE_NAME, CONF_LIVE_SOURCES, CONF_MAC, CONF_TOKEN, DOMAIN
 
 from .harness import available
 
@@ -36,23 +37,17 @@ def st(hass: HomeAssistant, eid: str):
 
 
 async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
+    await addon.run("close", "closed")
     r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     r = await hass.config_entries.flow.async_configure(
-        r["flow_id"],
-        {
-            CONF_HOST: "127.0.0.1",
-            CONF_PORT: addon.port,
-            CONF_CODE: "000000" if addon.code != "000000" else "111111",
-            CONF_DEVICE_NAME: "HA",
-        },
+        r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_DEVICE_NAME: "HA"}
     )
-    assert r["errors"] == {"base": "wrong_code"}
-    r = await hass.config_entries.flow.async_configure(
-        r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: 1, CONF_CODE: "123456", CONF_DEVICE_NAME: "HA"}
-    )
+    assert r["errors"] == {"base": "not_waiting"}
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: 1, CONF_DEVICE_NAME: "HA"})
     assert r["errors"] == {"base": "cannot_connect"}
+    await addon.open_pairing()
     r = await hass.config_entries.flow.async_configure(
-        r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_CODE: addon.code, CONF_DEVICE_NAME: "HA"}
+        r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_DEVICE_NAME: "HA"}
     )
     assert r["type"] is FlowResultType.CREATE_ENTRY
     entry = r["result"]
@@ -130,7 +125,8 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     await addon.command("revoke")
     await until(lambda: any(f["context"]["source"] == "reauth" for f in hass.config_entries.flow.async_progress()), 35)
     flow = next(f for f in hass.config_entries.flow.async_progress() if f["context"]["source"] == "reauth")
-    r = await hass.config_entries.flow.async_configure(flow["flow_id"], {CONF_CODE: await addon.new_code(), CONF_DEVICE_NAME: "HA"})
+    await addon.open_pairing()
+    r = await hass.config_entries.flow.async_configure(flow["flow_id"], {CONF_DEVICE_NAME: "HA"})
     assert r["type"] is FlowResultType.ABORT and r["reason"] == "reauth_successful"
     await hass.async_block_till_done()
     await until(lambda: entry.runtime_data.client.connected)
@@ -151,3 +147,26 @@ async def test_tv_unreachable_still_sets_up(hass: HomeAssistant, socket_enabled)
     with pytest.raises(Exception, match="MAC"):
         await hass.services.async_call("media_player", "turn_on", {"entity_id": "media_player.tv"}, blocking=True)
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_found_on_the_network(hass: HomeAssistant, addon, monkeypatch) -> None:
+    from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
+
+    monkeypatch.setattr(config_flow, "DEFAULT_PORT", addon.port)
+    info = SsdpServiceInfo(
+        ssdp_usn="uuid:tv::urn:lge-com:service:webos-second-screen:1",
+        ssdp_st="urn:lge-com:service:webos-second-screen:1",
+        ssdp_location="http://127.0.0.1:1856/",
+        upnp={"friendlyName": "LG TV"},
+    )
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_SSDP}, data=info)
+    assert r["type"] is FlowResultType.FORM and r["step_id"] == "confirm"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_DEVICE_NAME: "HA"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY and r["data"][CONF_PORT] == addon.port
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_unload(r["result"].entry_id)
+
+    # an LG TV without the add-on is not offered
+    monkeypatch.setattr(config_flow, "DEFAULT_PORT", 1)
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_SSDP}, data=info)
+    assert r["type"] is FlowResultType.ABORT and r["reason"] in ("not_cleanyourtv", "already_configured")

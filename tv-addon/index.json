@@ -22,9 +22,9 @@
       ],
       "files": {
         "addon.json": "892cedf07d43a67a32388da84d87f2196b8b153c7d0ee8cf03a0588de2ed3c4f",
-        "index.html": "7c8cc20355382f04d67cdd5ea6cf2e7bc8ea19ca0df4a724d4297f2221bf533d",
+        "index.html": "6fe78673f7a44efff08316d0c23439a2fc3f0e71f35a8f2458ab63b8951d0f52",
         "remotekeys.js": "557e7b609a36a480f6381be2f64a7560a3558985ef312b96d5ced82ab72a3c02",
-        "service.js": "afb7e9af9ddb7afae25bd42a8f9cab3f010802f8905e0d862b6a1b4167729ecc",
+        "service.js": "b5ce9b35b1af0bcc4b3007ced1b3640a057688b79caec590a059746ff59868ea",
         "ws.js": "37d77e3c42d650613d36aa287d037a3760ff52de5f51992b38e2e6dde7027bde"
       }
     }

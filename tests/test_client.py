@@ -33,14 +33,23 @@ async def test_pair_follow_and_act() -> None:
     addon = await Addon().start()
     try:
         async with aiohttp.ClientSession() as s:
-            with pytest.raises(c.CytvPairError) as wrong:
-                await c.async_pair(s, "127.0.0.1", addon.port, "000000" if addon.code != "000000" else "111111", "HA")
-            assert wrong.value.reason == "wrong_code"
-            token, name = await c.async_pair(s, "127.0.0.1", addon.port, addon.code, "Home Assistant")
+            hello = await c.async_hello(s, "127.0.0.1", addon.port)
+            assert hello["service"] == "cleanyourtv-homeassistant" and hello["open"] is True
+            token, name = await c.async_pair(s, "127.0.0.1", addon.port, "Home Assistant")
             assert name == "Home Assistant"
+            # one Home Assistant per press of "Pair Home Assistant", as with a Hue bridge
             with pytest.raises(c.CytvPairError) as closed:
-                await c.async_pair(s, "127.0.0.1", addon.port, addon.code, "HA")
-            assert closed.value.reason == "not_waiting"  # a code works once: the window closes
+                await c.async_pair(s, "127.0.0.1", addon.port, "HA")
+            assert closed.value.reason == "not_waiting"
+            assert (await c.async_hello(s, "127.0.0.1", addon.port))["open"] is False
+            # "Pair without asking" on the TV: no press needed
+            await addon.run("trust on", "trust")
+            assert (await c.async_hello(s, "127.0.0.1", addon.port))["open"] is True
+            token2, _ = await c.async_pair(s, "127.0.0.1", addon.port, "HA 2")
+            await addon.run("trust off", "trust")
+            with pytest.raises(c.CytvPairError):
+                await c.async_pair(s, "127.0.0.1", addon.port, "HA 3")
+            await c.CytvTV(s, "127.0.0.1", addon.port, token2).async_unpair()
 
             tv = c.CytvTV(s, "127.0.0.1", addon.port, token)
             tv.start()
@@ -105,11 +114,17 @@ async def test_pair_follow_and_act() -> None:
         await addon.stop()
 
 
+async def test_not_the_addon() -> None:
+    async with aiohttp.ClientSession() as s:
+        with pytest.raises(c.CytvError):
+            await c.async_hello(s, "127.0.0.1", 1)
+
+
 async def test_unpair_and_no_web_pages() -> None:
     addon = await Addon().start()
     try:
         async with aiohttp.ClientSession() as s:
-            token, _ = await c.async_pair(s, "127.0.0.1", addon.port, addon.code, "HA")
+            token, _ = await c.async_pair(s, "127.0.0.1", addon.port, "HA")
             # a web page in a browser on the network cannot use it (browsers send Origin)
             async with s.get(
                 f"http://127.0.0.1:{addon.port}/api/state", headers={"Origin": "http://evil.example", "Authorization": f"Bearer {token}"}

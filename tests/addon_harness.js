@@ -1,7 +1,8 @@
 // Runs the TV add-on (tv-addon/catalog/homeassistant/service.js) on this computer, without a TV: luna, its subscriptions, the keys and the
 // launcher's API are fakes. The Python tests talk to it as the integration talks to the TV.
 // Usage: node addon_harness.js            (stdout: one JSON line per event; stdin: one command per line)
-//   pair                       opens the pairing window: {"ev":"code","code":"123456"}
+//   pair                       opens the pairing window ("Pair Home Assistant" on the TV): {"ev":"open"}
+//   close                      closes it; trust on|off: "Pair without asking"
 //   app <id> | media <appId> <playState> | volume <level> <mute> | power <state> | pipeline <uri>
 //   revoke                     forgets every paired Home Assistant
 'use strict';
@@ -95,12 +96,15 @@ api.listen(0, '127.0.0.1', async () => {
       };
       ha.handle({ method: body ? 'POST' : 'GET', headers: {} }, res, p, async () => body || {});
     });
-  const p = await call('/pair', {});
-  say({ ev: 'listening', port: ha.address().port, code: p.pairing.code });
+  if (process.argv.indexOf('--closed') < 0) await call('/pair', {});
+  else await call('/pair', { stop: true });
+  say({ ev: 'listening', port: ha.address().port });
   readline.createInterface({ input: process.stdin }).on('line', async line => {
     const a = line.trim().split(' ');
     const cmd = a[0];
-    if (cmd === 'pair') say({ ev: 'code', code: (await call('/pair', {})).pairing.code });
+    if (cmd === 'pair') say({ ev: 'open', pairing: (await call('/pair', {})).pairing });
+    else if (cmd === 'close') say({ ev: 'closed', pairing: (await call('/pair', { stop: true })).pairing });
+    else if (cmd === 'trust') say({ ev: 'trust', trust: (await call('/trust', { on: a[1] === 'on' })).trust });
     else if (cmd === 'app') send('applicationManager', { appId: a[1] });
     else if (cmd === 'media') send('com.webos.media', { foregroundAppInfo: [{ appId: a[1], type: 'media', playState: a[2] }] });
     else if (cmd === 'volume') send('audio', { volumeStatus: { volume: +a[1], muteStatus: a[2] === 'true', maxVolume: 100 } });

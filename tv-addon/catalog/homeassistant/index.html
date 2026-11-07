@@ -8,7 +8,7 @@
   #wrap { position: absolute; left: 8%; right: 8%; top: 8%; bottom: 6%; }
   h1 { font-size: 3.4vw; font-weight: 300; margin: 0 0 1.2vw 0; }
   .sub { font-size: 1.5vw; color: #9aa; margin-bottom: 2.5vw; line-height: 1.4; }
-  #code { font-size: 9vw; letter-spacing: 1.5vw; font-weight: 300; margin: 1vw 0; }
+  #code { font-size: 5vw; font-weight: 300; margin: 1vw 0; }
   #addr { font-size: 1.8vw; color: #cde; }
   .btn { display: inline-block; font-size: 1.8vw; padding: 0.9vw 2vw; margin: 0.6vw 1vw 0.6vw 0; border-radius: 0.6vw; background: #1d2630; color: #fff; }
   .btn.f { background: #3d8bfd; }
@@ -39,15 +39,19 @@
   var T = NL
     ? {
         title: 'Home Assistant',
-        intro: 'Koppel Home Assistant met deze tv: Home Assistant ziet dan meteen welke app er voorop staat, of er iets speelt of op pauze staat, welke Live TV-zender en welk programma je kijkt en het volume, en kan de tv bedienen. Voeg in Home Assistant de integratie CleanYourTV toe.',
-        pair: 'Home Assistant koppelen', stop: 'Stoppen met koppelen', codeLabel: 'Vul deze code in bij Home Assistant (3 minuten geldig):',
+        intro: 'Koppel Home Assistant met deze tv: Home Assistant ziet dan meteen welke app er voorop staat, of er iets speelt of op pauze staat, welke Live TV-zender en welk programma je kijkt en het volume, en kan de tv bedienen. Home Assistant vindt de tv vanzelf (integratie CleanYourTV).',
+        pair: 'Home Assistant koppelen', stop: 'Stoppen met koppelen', codeLabel: 'De tv wacht op Home Assistant. Klik nu in Home Assistant op Verzenden.',
+        left: 'nog %s', trustOn: 'Koppelen zonder te vragen: aan', trustOff: 'Koppelen zonder te vragen: uit',
+        trustNote: 'Aan: elk Home Assistant op je netwerk mag koppelen zonder dat je hier iets kiest. Niet aangeraden.',
         address: 'Adres van de tv: ', none: 'Nog geen Home Assistant gekoppeld.', remove: 'Verwijderen', removed: 'Verwijderd.',
         paired: 'gekoppeld', seen: 'laatst gezien', now: 'Nu: ', playing: 'speelt', paused: 'pauze', nothing: 'niets'
       }
     : {
         title: 'Home Assistant',
-        intro: 'Pair Home Assistant with this TV: Home Assistant then sees at once which app is in front, whether it plays or is paused, which Live TV channel and programme you watch and the volume, and can control the TV. In Home Assistant, add the CleanYourTV integration.',
-        pair: 'Pair Home Assistant', stop: 'Stop pairing', codeLabel: 'Enter this code in Home Assistant (valid for 3 minutes):',
+        intro: 'Pair Home Assistant with this TV: Home Assistant then sees at once which app is in front, whether it plays or is paused, which Live TV channel and programme you watch and the volume, and can control the TV. Home Assistant finds the TV by itself (the CleanYourTV integration).',
+        pair: 'Pair Home Assistant', stop: 'Stop pairing', codeLabel: 'The TV is waiting for Home Assistant. Click Submit in Home Assistant now.',
+        left: '%s left', trustOn: 'Pair without asking: on', trustOff: 'Pair without asking: off',
+        trustNote: 'On: any Home Assistant on your network may pair without you choosing anything here. Not recommended.',
         address: 'Address of the TV: ', none: 'No Home Assistant is paired yet.', remove: 'Remove', removed: 'Removed.',
         paired: 'paired', seen: 'last seen', now: 'Now: ', playing: 'playing', paused: 'paused', nothing: 'nothing'
       };
@@ -78,12 +82,17 @@
     list.innerHTML = '';
     $('pairing').style.display = s.pairing ? 'block' : 'none';
     if (s.pairing) {
-      $('code').textContent = s.pairing.code;
+      var secs = Math.max(0, Math.round((s.pairing.until - Date.now()) / 1000));
+      $('code').textContent = T.left.replace('%s', Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2));
       $('addr').textContent = s.address ? T.address + s.address.split(':')[0] : '';
     }
     bt.appendChild(button(s.pairing ? T.stop : T.pair, function () {
       CYTV.api('/pair', s.pairing ? { stop: true } : {}).then(refresh);
     }));
+    bt.appendChild(button(s.trust ? T.trustOn : T.trustOff, function () {
+      CYTV.api('/trust', { on: !s.trust }).then(refresh);
+    }));
+    $('msg').textContent = s.trust ? T.trustNote : '';
     if (!s.clients.length) {
       var e = document.createElement('div');
       e.className = 'row';
