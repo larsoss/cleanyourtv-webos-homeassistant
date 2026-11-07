@@ -37,6 +37,8 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -r requirements_test.txt
+      - name: the frontend package the installed Home Assistant wants (the card's files are served by the integration)
+        run: pip install "$(python -c "import json,pathlib,homeassistant as h;print(json.load(open(pathlib.Path(h.__file__).parent/'components/frontend/manifest.json'))['requirements'][0])")"
       - run: ruff check custom_components tests --select E,F,W,I,B,UP,SIM --ignore E501
       - run: ruff format --check custom_components tests
       - run: python -m pytest tests -v

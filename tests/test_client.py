@@ -92,7 +92,7 @@ async def test_pair_follow_and_act() -> None:
             await tv.async_set_volume(20)
             await addon.wait_for(lambda e: e.get("uri", "").endswith("/setVolume") and e["params"] == {"volume": 20})
             await tv.async_set_mute(True)
-            await addon.wait_for(lambda e: e.get("uri", "").endswith("/setMute") and e["params"] == {"mute": True})
+            await addon.wait_for(lambda e: e.get("uri", "").endswith("/muteVolume") and e["params"] == {"mute": True})
             await tv.async_power("on")
             await addon.wait_for(lambda e: e.get("uri", "").endswith("/turnOnScreen"))
             with pytest.raises(c.CytvError):
@@ -100,7 +100,11 @@ async def test_pair_follow_and_act() -> None:
 
             assert {a["id"] for a in await tv.async_apps()} == {"netflix", "youtube.leanback.v4"}
             assert (await tv.async_inputs())[0]["appId"] == "com.webos.app.hdmi1"
-            assert [ch["num"] for ch in await tv.async_channels()] == [1, 24]
+            chans = await tv.async_channels()
+            assert [ch["num"] for ch in chans] == [1, 24]
+            assert (
+                chans[1]["now"]["title"] == "F1 Kwalificatie" and chans[1]["next"]["title"] == "F1 Nabeschouwing" and "now" not in chans[0]
+            )
             assert (await tv.async_picture("/api/icon/netflix"))[0] == b"PNG"
 
             # removed on the TV: the next poll is refused and the client stops

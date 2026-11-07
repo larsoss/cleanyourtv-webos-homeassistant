@@ -77,6 +77,7 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     a = st(hass, MP).attributes
     assert a["media_title"] == "F1 Kwalificatie" and a["app_name"] == "Live TV" and a["live_channel_number"] == 24
     assert a["media_content_type"] == "channel" and a["media_duration"] > 0
+    assert a["next_programme_title"] == "F1 Nabeschouwing"
 
     await addon.command("power Screen Off")
     await until(lambda: st(hass, MP).state == "idle")
@@ -92,7 +93,7 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     await hass.services.async_call("media_player", "volume_set", {"entity_id": MP, "volume_level": 0.3}, blocking=True)
     await addon.wait_for(lambda e: e.get("uri", "").endswith("/setVolume") and e["params"] == {"volume": 30})
     await hass.services.async_call("media_player", "volume_mute", {"entity_id": MP, "is_volume_muted": False}, blocking=True)
-    await addon.wait_for(lambda e: e.get("uri", "").endswith("/setMute") and e["params"] == {"mute": False})
+    await addon.wait_for(lambda e: e.get("uri", "").endswith("/muteVolume") and e["params"] == {"mute": False})
     await hass.services.async_call("media_player", "media_pause", {"entity_id": MP}, blocking=True)
     await addon.wait_for(lambda e: e == {"ev": "key", "k": "PAUSE"})
     await until(lambda: st(hass, MP).attributes.get("source_list"))
@@ -117,7 +118,9 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
 
     # Live TV channels as sources
     r = await hass.config_entries.options.async_init(entry.entry_id)
-    await hass.config_entries.options.async_configure(r["flow_id"], {CONF_LIVE_SOURCES: True})
+    assert r["type"] is FlowResultType.MENU
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "settings"})
+    await hass.config_entries.options.async_configure(r["flow_id"], {CONF_LIVE_SOURCES: True, "sidebar": True})
     await hass.async_block_till_done()
     await until(lambda: "Live: 24 Viaplay F1" in (st(hass, MP).attributes.get("source_list") or []))
 
@@ -170,3 +173,82 @@ async def test_found_on_the_network(hass: HomeAssistant, addon, monkeypatch) -> 
     monkeypatch.setattr(config_flow, "DEFAULT_PORT", 1)
     r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_SSDP}, data=info)
     assert r["type"] is FlowResultType.ABORT and r["reason"] in ("not_cleanyourtv", "already_configured")
+
+
+async def test_remote_card_backend(hass: HomeAssistant, addon, hass_ws_client, hass_client_no_auth) -> None:
+    """The card's WebSocket commands and its pictures (the card itself was checked in Chromium with a stand-in for Home Assistant)."""
+    await addon.open_pairing()
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_DEVICE_NAME: "HA"}
+    )
+    entry = r["result"]
+    await hass.async_block_till_done()
+    await until(lambda: st(hass, MP).attributes.get("connected") is True)
+
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "cleanyourtv/card", "entity_id": MP})
+    card = (await ws.receive_json())["result"]
+    assert card["entry_id"] == entry.entry_id and len(card["secret"]) == 32
+
+    await ws.send_json({"id": 2, "type": "cleanyourtv/action", "entry_id": entry.entry_id, "action": {"t": "key", "k": "HOME", "n": 7}})
+    assert (await ws.receive_json())["result"] == {"ok": True, "error": ""}
+    await addon.wait_for(lambda e: e == {"ev": "key", "k": "HOME"})
+    await ws.send_json({"id": 3, "type": "cleanyourtv/action", "entry_id": entry.entry_id, "action": {"t": "selfdestruct"}})
+    assert (await ws.receive_json())["result"]["ok"] is False
+    await ws.send_json({"id": 4, "type": "cleanyourtv/list", "entry_id": entry.entry_id, "kind": "live"})
+    assert [c["num"] for c in (await ws.receive_json())["result"]["channels"]] == [1, 24]
+    await ws.send_json({"id": 5, "type": "cleanyourtv/list", "entry_id": entry.entry_id, "kind": "apps"})
+    assert (await ws.receive_json())["result"]["apps"][0]["id"] == "netflix"
+
+    client = await hass_client_no_auth()
+    resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/icon/netflix?t={card['secret']}")
+    assert resp.status == 200 and await resp.read() == b"PNG"
+    resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/icon/netflix?t=wrong")
+    assert resp.status == 401
+    resp = await client.get("/cleanyourtv_static/cleanyourtv-remote.js")
+    assert resp.status == 200 and "cleanyourtv-remote" in await resp.text()
+    resp = await client.get("/cleanyourtv_static/pages/nl.html")
+    assert resp.status == 200 and "Afstandsbediening" in await resp.text()
+
+    # the remote page: in the sidebar, and the device page links to it
+    await ws.send_json({"id": 6, "type": "cleanyourtv/tvs"})
+    assert (await ws.receive_json())["result"] == [{"entry_id": entry.entry_id, "title": entry.title, "entity_id": MP}]
+    await ws.send_json({"id": 7, "type": "get_panels"})
+    panels = (await ws.receive_json())["result"]
+    assert panels["cleanyourtv-remote"]["title"] == "TV remote"
+    from homeassistant.helpers import device_registry as dr
+
+    dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.unique_id or entry.entry_id)})
+    assert dev.configuration_url == f"homeassistant://cleanyourtv-remote?entry={entry.entry_id}"
+
+    # put the remote on a dashboard of one's choice: a view is added, nothing else changes
+    await ws.send_json({"id": 8, "type": "lovelace/dashboards/create", "url_path": "home-tv", "title": "Woonkamer", "mode": "storage"})
+    assert (await ws.receive_json())["success"]
+    await ws.send_json(
+        {"id": 9, "type": "lovelace/config/save", "url_path": "home-tv", "config": {"views": [{"title": "Mine", "cards": []}]}}
+    )
+    assert (await ws.receive_json())["success"]
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "dashboard"})
+    assert r["step_id"] == "dashboard"
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"dashboard": "home-tv"})
+    assert r["type"] is FlowResultType.ABORT and r["reason"] == "added_to_dashboard"
+    await ws.send_json({"id": 10, "type": "lovelace/config", "url_path": "home-tv"})
+    views = (await ws.receive_json())["result"]["views"]
+    assert [v["title"] for v in views] == ["Mine", "TV remote"]
+    assert views[1]["sections"][0]["cards"][1] == {
+        "type": "custom:cleanyourtv-remote",
+        "entity": MP,
+        "height": 760,
+        "grid_options": {"columns": "full"},
+    }
+
+    # turned off in the options: the page leaves the sidebar
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "settings"})
+    await hass.config_entries.options.async_configure(r["flow_id"], {"live_sources": False, "sidebar": False})
+    await hass.async_block_till_done()
+    await ws.send_json({"id": 11, "type": "get_panels"})
+    assert (await ws.receive_json())["result"]["cleanyourtv-remote"]["title"] is None
+    assert await hass.config_entries.async_unload(entry.entry_id)

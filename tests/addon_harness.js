@@ -19,6 +19,7 @@ const subs = {}; // uri -> onMsg
 let pipelineUri = '';
 const luna = (uri, params) => {
   say({ ev: 'luna', uri, params });
+  if (/getSystemInfo$/.test(uri)) return Promise.resolve({ returnValue: true, modelName: process.env.HARNESS_MODEL || '' });
   if (/getActivePipelines$/.test(uri))
     return Promise.resolve(pipelineUri ? [{ type: 'media', appId: 'com.webos.app.home', is_foreground: true, uri: pipelineUri }] : []);
   return Promise.resolve({ returnValue: true });
@@ -66,7 +67,7 @@ const api = http.createServer((req, res) => {
     if (u === '/api/live/state') return j({ fav: [], recent: ['key1'], failed: {} });
     if (u.indexOf('/api/live/epg') === 0) {
       const now = Math.floor(Date.now() / 1000);
-      return j(/f1\.nl/.test(u) ? { 'f1.nl': { now: [now - 60, now + 3600, 'F1 Kwalificatie', 'Brazilië'], next: null } } : {});
+      return j(/f1\.nl/.test(u) ? { 'f1.nl': { now: [now - 60, now + 3600, 'F1 Kwalificatie', 'Brazilië'], next: [now + 3600, now + 7200, 'F1 Nabeschouwing', ''] } } : {});
     }
     if (u === '/api/launch') {
       say({ ev: 'launch', body: JSON.parse(b || '{}') });
@@ -83,7 +84,7 @@ const api = http.createServer((req, res) => {
 api.listen(0, '127.0.0.1', async () => {
   const ha = HA.create(
     { settings: store, dataDir: os.tmpdir(), luna, util: { lanIp: () => '127.0.0.1' }, log: () => {} },
-    { port: 0, host: '127.0.0.1', keys, luna, subscribe, api: 'http://127.0.0.1:' + api.address().port, liveWaitMs: 50, waitMs: 3000 }
+    { port: +process.env.HARNESS_PORT || 0, host: '127.0.0.1', keys, luna, subscribe, api: 'http://127.0.0.1:' + api.address().port, liveWaitMs: 50, waitMs: 3000 }
   );
   ha.start();
   const call = (p, body) =>

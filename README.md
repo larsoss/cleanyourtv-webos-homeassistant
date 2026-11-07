@@ -1,101 +1,200 @@
 # CleanYourTV for Home Assistant
 
-A rooted LG webOS TV with [CleanYourTV](https://github.com/lasharor/cleanyourtv-WebOS) in Home Assistant, **both ways**. The TV tells Home Assistant the moment something changes, and Home Assistant controls the TV.
+Your rooted LG webOS TV with [CleanYourTV](https://github.com/lasharor/cleanyourtv-WebOS) in Home Assistant, **both ways**:
 
-**What the TV reports, as it happens (no polling):**
+- **The TV tells Home Assistant what it is doing**, the moment it changes:
+  - which app is in front;
+  - whether the video **plays or is paused**, in any app (Netflix, YouTube, Live TV, …);
+  - which **Live TV channel** and **programme** you watch;
+  - the volume and mute;
+  - whether the TV is on, has its screen off, or is in standby.
+- **Home Assistant controls the TV:**
+  - on, off and the screen;
+  - the volume, play and pause, the source and the channel;
+  - every remote key, text and the pointer.
+- **A remote card** that looks and works exactly like CleanYourTV's Phone remote: buttons, touchpad, apps and Live TV with the guide.
 
-- the app in front;
-- whether its video **plays or is paused**: Netflix, YouTube, Live TV and every app that plays through the TV's own media pipeline;
-- the **Live TV channel** you watch (CleanYourTV's M3U playlist), with the **programme from the guide** and the channel logo;
-- the **volume** and **mute**;
-- the **power state**: on, screen off, standby.
+![A Home Assistant dashboard: the TV's media player with the programme on Live TV, and the remote card](docs/screenshots/ha-dashboard.png)
 
-**What Home Assistant can do:**
+> **Beta.** Everything here was tested on an LG 65UP77006LB (webOS 6.5.3) and with automated tests. Other webOS versions should work, but have not been tested yet. Please [open an issue](https://github.com/larsoss/cleanyourtv-webos-homeassistant/issues) with your TV model, webOS version and what you see.
 
-- turn the TV on (Wake-on-LAN, or the screen back on) and off (standby);
-- set the volume, mute, play, pause, stop, and channel up and down;
-- pick an input, app or Live TV channel as the source;
-- send every remote key, text, and pointer moves;
-- screen off and on, restart, shut down.
+---
 
-It is one integration with one device per TV:
+## What you need
 
-- **media player:** the state, what plays, the source and the volume;
-- **remote:** keys and actions;
-- **buttons** for power;
-- **sensor** for the power state.
+| | |
+|---|---|
+| **TV** | An LG webOS TV that is **rooted** (Homebrew Channel) with **CleanYourTV** installed and running. |
+| **Home Assistant** | 2025.1 or newer, with [HACS](https://hacs.xyz). It must be on the same network as the TV. |
+| **Network** | Best: a **fixed IP address** for the TV in your router. To turn the TV on from standby, switch on **TV On With Mobile** (Wake-on-LAN) in the TV's settings (search the settings for it; where it is differs per webOS version). |
 
-## How it works
+Something has to run on the TV itself: only a program on the TV can see whether Netflix is paused or which channel plays. That program is the small **Home Assistant add-on** for CleanYourTV. You install it once, on the TV, in step 1. Home Assistant cannot install it for you, because CleanYourTV only accepts installs from the TV itself.
 
-The repository has two parts:
+---
 
-| Part | Where | What |
-| --- | --- | --- |
-| **TV add-on "Home Assistant"** | `tv-addon/` (a CleanYourTV add-on repository) | Runs inside CleanYourTV's service on the TV. Follows LG's own services (app manager, `com.webos.media`, audio, power) with luna subscriptions while Home Assistant is connected, and answers on port 8801. |
-| **Integration "CleanYourTV"** | `custom_components/cleanyourtv` (HACS) | Finds the TV by itself, pairs once (like a Hue bridge: no code to type), then keeps a long poll open: the TV answers the moment something changes. |
+## Step 1 — On the TV: install the add-on
 
-The Live TV channel is found on the TV itself. The address of the stream that plays is matched against your playlist. That address can contain your provider's credentials, so it never leaves the TV: Home Assistant gets only the number, name, group, programme and logo.
+**In the CleanYourTV manager app** (on the TV, with the remote):
 
-Checked on an LG 65UP77006LB (webOS 6.5.3, firmware 03.53.45) with read-only calls:
+1. Open **Add-ons** › **Repositories** › **Add from your phone**.
+2. Scan the code with your phone. On the phone, type this address:
 
-- Netflix reports `paused` and `playing`;
-- Live TV in Home reports `loaded` then `playing`, and its stream matched the channel, with the programme from the guide;
-- the volume reports every step and mute;
-- app switches arrive at once.
+   ```
+   larsoss/cleanyourtv-webos-homeassistant@main/tv-addon
+   ```
 
-The add-on and the integration together have not run on a TV yet. The tests run the add-on on a computer, with a fake TV behind it.
+   Tick that you trust it, and choose **Add**.
 
-## Install
+   For the beta channel, use `larsoss/cleanyourtv-webos-homeassistant@Beta/tv-addon` instead.
+3. Back in **Add-ons**, choose **Home Assistant** and **Install**.
 
-### 1. On the TV: the add-on
+   CleanYourTV first shows what the add-on is allowed to do. Like every add-on that runs on the TV, it runs as root.
 
-1. Manager app > **Add-ons** > **Repositories** > **Add from your phone**. Enter `larsoss/cleanyourtv-webos-homeassistant@main/tv-addon` and confirm that you trust it.
+**Or over SSH** (`ssh root@<tv-ip>`):
 
-   Over SSH instead: `cytv-addons repo-add larsoss/cleanyourtv-webos-homeassistant@main/tv-addon`.
-2. Install **Home Assistant** from the Add-ons list.
+```sh
+node /media/developer/cleanyourtv/cytv-addons.js repo-add larsoss/cleanyourtv-webos-homeassistant@main/tv-addon
+node /media/developer/cleanyourtv/cytv-addons.js install homeassistant
+```
 
-   Over SSH: `cytv-addons install homeassistant`.
+The add-on has its own page on the TV: **Home Assistant**, in the book of pages next to Home. Open it from there, or from **Add-ons** › **Home Assistant**.
 
-   The manager shows what the add-on may do before it installs. Like every add-on of `kind: service`, it runs as root on the TV.
+![The add-on's page on the TV while it waits for Home Assistant](docs/screenshots/tv-addon-pairing.png)
 
-### 2. In Home Assistant: the integration
+---
 
-1. HACS > the three dots > **Custom repositories**: add `https://github.com/larsoss/cleanyourtv-webos-homeassistant`, type **Integration**. Install **CleanYourTV** and restart Home Assistant.
-2. Home Assistant **finds the TV by itself**: **Settings > Devices & services** shows *CleanYourTV discovered*. LG TVs announce themselves on the network (SSDP), the same way LG's own webOS integration finds them, and the integration offers only a TV that runs the add-on. You can also add it by hand: **Add integration > CleanYourTV**, with the TV's IP address.
-3. Pair it like a Hue bridge, without a code: on the TV, open the add-on's page (**Home Assistant**, in the book next to Home) and choose **Pair Home Assistant**. Then, within three minutes, click **Submit** in Home Assistant.
+## Step 2 — In Home Assistant: install and pair
 
-   On the add-on's page, **Pair without asking** lets any Home Assistant on your network pair without step 3 on the TV. It is off by default and not recommended: any device on your network could then control the TV and see what you watch.
+### 2a. Install the integration
 
-   An **Allow / Deny** question on the TV, as LG's own integration asks, is planned. It needs the add-on to open its page by itself, which comes with CleanYourTV's "Open page" (pull request #201).
+1. **HACS** › the three dots › **Custom repositories**. Add `https://github.com/larsoss/cleanyourtv-webos-homeassistant` with type **Integration**.
+2. Search for **CleanYourTV** in HACS and **Download** it.
 
-The add-on's page lists the paired Home Assistants and can remove one. If you remove Home Assistant there, Home Assistant asks you to pair again. If you delete the integration in Home Assistant, the TV forgets it too. If the TV gets a new IP address, discovery updates it by itself (or use **Reconfigure**).
+   For the beta channel: on the integration's page in HACS, choose ⋮ › **Redownload**, switch on **Show beta versions**, and pick the newest beta.
+3. **Restart Home Assistant.**
 
-To turn the TV on from standby, switch **TV On With Mobile** (Wake-on-LAN) on in the TV's settings, and best give the TV a fixed IP address. The packet goes to the TV's own address as well as a broadcast, so it also works over Wi-Fi.
+### 2b. Add the TV
 
-**Keys on webOS 5 and 6:** the add-on presses keys the way the Phone remote add-on does. The first time, the TV may ask on screen whether to allow the connection.
+Home Assistant usually **finds the TV by itself**. **Settings › Devices & services** then shows **"Discovered: CleanYourTV"**. Click **Add**.
 
-## The media player
+If it does not show up: **Settings › Devices & services › Add integration › CleanYourTV**, and type the TV's IP address.
+
+### 2c. Pair (no code to type)
+
+It works like the button of a Hue bridge:
+
+1. **On the TV**, open the add-on's page **Home Assistant** and choose **Pair Home Assistant**. The TV now waits for three minutes.
+2. **In Home Assistant**, click **Submit**.
+
+![Pairing in Home Assistant](docs/screenshots/ha-pair.png)
+
+That's it. The TV appears as a device with a media player, a remote, buttons and a power-state sensor. **Visit** opens its remote:
+
+![The TV as a device in Home Assistant](docs/screenshots/ha-device.png)
+
+The add-on's page on the TV shows the paired Home Assistants and can remove one:
+
+![The add-on's page with a paired Home Assistant](docs/screenshots/tv-addon-paired.png)
+
+---
+
+## Step 3 — The remote
+
+The integration brings the remote along. You do not have to install it separately or add it as a resource. There are three ways to open it.
+
+**1. In the sidebar: "TV remote".** Right after pairing, a page with the remote appears in the sidebar. With several TVs, choose one at the top.
+
+**2. From the TV's device page: "Visit".** It opens that TV's remote page. You can switch the sidebar entry off in the integration's settings; this link stays.
+
+![The remote as a page of its own: "TV remote" in the sidebar](docs/screenshots/ha-panel.png)
+
+**3. On a dashboard of your choice, with one click:**
+
+1. Go to **Settings › Devices & services › CleanYourTV** and open the **cogwheel** (Configure).
+2. Choose **Put the remote on a dashboard** and pick the dashboard.
+
+A new view **"TV remote"** is added to that dashboard, with the media player and the remote. Nothing else on the dashboard changes.
+
+This works for dashboards made in the UI. The automatic Overview can only be changed once you have taken control of it.
+
+**Or add the card yourself:** **Edit dashboard › Add card › "CleanYourTV remote"**, or in YAML:
+
+```yaml
+type: custom:cleanyourtv-remote
+entity: media_player.lg_tv
+height: 720
+```
+
+For `entity`, use **your** TV's media player: the one made by CleanYourTV, not the one of LG's own webOS integration.
+
+![The remote card: Remote, Touchpad, Apps and Live TV with the programme on now](docs/screenshots/remote-card.png)
+
+It is the Phone remote of CleanYourTV, by [@Edenik](https://github.com/Edenik):
+
+- the round pad with OK, VOL and CH, mute, the play bar, Inputs, Keyboard, 123 (numbers and colours) and power;
+- the **Touchpad** moves the TV's pointer;
+- **Apps** opens an app;
+- **Live** lists your Live TV channels with the programme that is on now.
+
+The card follows Home Assistant's language. Every language of CleanYourTV is included:
+
+![The remote card in Dutch](docs/screenshots/remote-card-nl.png)
+
+---
+
+## What you get in Home Assistant
+
+### Media player
 
 | State | When |
-| --- | --- |
+|---|---|
 | `playing` / `paused` | the video in front plays or is paused (any app that plays through the TV) |
 | `buffering` | a video is loading |
 | `on` | on, nothing plays |
-| `idle` | the screen is off (the TV runs) |
+| `idle` | the screen is off, the TV runs |
 | `off` | standby, or not reachable |
 
-During Live TV:
+**During Live TV:**
 
-- `media_channel` is `24 Viaplay F1`;
-- `media_title` is the programme (`F1 Kwalificatie`);
-- `media_duration` and `media_position` follow the programme from the guide;
+- `media_channel` is the channel, for example `24 Formula 1`;
+- `media_title` is the programme from the guide;
+- `media_duration` and `media_position` follow the programme;
 - the picture is the channel logo.
 
-The attributes also have `live_channel_number`, `live_channel_name`, `live_channel_group`, `programme_title`, `programme_start`, `programme_end` and `programme_description`.
+**Attributes:**
 
-For other apps, `app_id` and `app_name` say what is in front and the picture is the app's icon.
+- `app_id` and `app_name`;
+- `live_channel_number`, `live_channel_name`, `live_channel_group`;
+- `programme_title`, `programme_start`, `programme_end`, `programme_description`;
+- `next_programme_title`, `next_programme_start`;
+- `power_state`, `sound_output`, `connected`.
 
-### Automation: dim the lights when Netflix pauses
+**What it controls:**
+
+- **turn on:** Wake-on-LAN, or the screen back on;
+- **turn off:** standby;
+- **volume:** set, up and down, mute;
+- **play, pause, stop;**
+- **next and previous:** channel up and down;
+- **source:** inputs and apps, and the Live TV channels if you switch that on in the integration's options;
+- **`play_media`:** `media_content_type: app` with an app id, or `channel` with a number.
+
+### Remote, buttons and sensor
+
+- **Remote** (`remote.*`) — `remote.send_command` takes the TV's key names:
+
+  ```
+  UP DOWN LEFT RIGHT ENTER BACK HOME MENU EXIT INFO POWER VOLUMEUP VOLUMEDOWN MUTE CHANNELUP CHANNELDOWN PLAY PAUSE STOP REWIND FASTFORWARD RED GREEN YELLOW BLUE 0-9
+  ```
+
+  It also takes `text:<text>`, `enter`, `delete`, `click`, `launch:<app id>` and `live:<number>`. Its attributes list the app ids.
+- **Buttons:** Screen off, Screen on, Standby, Restart, and Shut down. Shut down is disabled by default, because only the TV's own remote turns the TV back on after it.
+- **Sensor:** the power state (On, Screen off, Standby, Not reachable, …).
+- **Actions:** `cleanyourtv.send_text`, `cleanyourtv.launch_app`, `cleanyourtv.live_channel`, `cleanyourtv.tv_power`, `cleanyourtv.pointer` and `cleanyourtv.refresh_lists`.
+
+### Example automations
+
+Lights up a little when Netflix is paused:
 
 ```yaml
 alias: TV paused, lights up
@@ -111,16 +210,16 @@ conditions:
 actions:
   - action: light.turn_on
     target:
-      entity_id: light.woonkamer
+      entity_id: light.living_room
     data:
       brightness_pct: 60
 mode: single
 ```
 
-### Automation: a message when the race starts
+A message when you switch to a channel:
 
 ```yaml
-alias: F1 is on
+alias: Formula 1 is on
 triggers:
   - trigger: state
     entity_id: media_player.lg_tv
@@ -129,178 +228,104 @@ triggers:
 actions:
   - action: notify.notify
     data:
-      message: "Nu op tv: {{ state_attr('media_player.lg_tv', 'programme_title') }}"
+      message: "On TV now: {{ state_attr('media_player.lg_tv', 'programme_title') }}"
 mode: single
 ```
 
-## The remote
+---
 
-`remote.send_command` takes key names:
+## Troubleshooting
 
-```
-UP DOWN LEFT RIGHT ENTER BACK HOME MENU EXIT INFO POWER VOLUMEUP VOLUMEDOWN MUTE CHANNELUP CHANNELDOWN
-PLAY PAUSE STOP REWIND FASTFORWARD RED GREEN YELLOW BLUE 0-9
-```
+| What you see | What to do |
+|---|---|
+| **"The TV did not answer"** when adding | Is the TV on? Is the **Home Assistant** add-on installed and switched on (manager › Add-ons)? Is the IP address right, and is the port `8801`? |
+| **"The TV is not waiting"** | Choose **Pair Home Assistant** on the add-on's page on the TV first, then click Submit within three minutes. |
+| **"Custom element doesn't exist: cleanyourtv-remote"** | Home Assistant has not loaded the card yet. Restart Home Assistant once after installing. In the **Companion app**, close it completely and open it again, or use Settings › Companion app › Troubleshooting › reset the frontend cache. |
+| **Home Assistant asks to pair again** | The TV removed this Home Assistant (on the add-on's page). Pair again as in step 2c. |
+| **Turning on does not work** | Switch on **TV On With Mobile** in the TV's settings, and give the TV a fixed IP address. The first time, turn the TV on with its own remote while Home Assistant is connected, so that it learns the TV's MAC address. |
+| **The first remote key asks something on the TV** | The TV asks once whether the add-on may use its pointer. Allow it. |
+| **An app shows no play/pause** | Not every app plays through the TV's own media pipeline. Please open an issue with the app's name. |
 
-It also takes a few commands of its own:
+## Versions
 
-| Command | What it does |
-| --- | --- |
-| `text:<text>` | types into the text field that is open on the TV |
-| `enter`, `delete`, `click` | Enter, delete one character, a pointer click |
-| `launch:<app id>` | opens an app or input (`launch:com.webos.app.hdmi1`, `launch:netflix`) |
-| `live:<number>` | Live TV of CleanYourTV on that channel |
+- **`main`** is the release.
+- **`Beta`** gets new things first:
+  - the integration's beta versions end in `b1`, `b2`, … (for example `0.2.0b3`);
+  - the TV add-on's name says "(beta)".
+- **In HACS**, switch on **Show beta versions** to follow the beta channel. HACS then only offers an update for a new beta or a new release.
 
-Actions:
+## Privacy and security
 
-- `cleanyourtv.send_text`
-- `cleanyourtv.launch_app`
-- `cleanyourtv.live_channel`
-- `cleanyourtv.tv_power`: `off`, `on`, `standby`, `reboot` or `shutdown`
-- `cleanyourtv.pointer`
-- `cleanyourtv.refresh_lists`
+- **Your network only.** Everything stays on your own network: the TV and Home Assistant talk directly, on port 8801. The connection is plain HTTP, so use it on a network you trust.
+- **Pairing.** Only a Home Assistant that was paired while you chose **Pair Home Assistant** on the TV can use it. Every call needs that pairing's token. Web pages in a browser are refused.
+- **Pair without asking.** On the add-on's page, **Pair without asking** lets any Home Assistant on your network pair without the step on the TV. It is off by default, and not recommended.
+- **Your IPTV address.** The address of your IPTV stream (it can contain your provider's login) never leaves the TV. Home Assistant only gets the channel's number, name, group, programme and logo.
 
-`media_player.play_media` takes `media_content_type: app` with an app id, or `channel` with a number. The options of the integration can add the Live TV channels to the source list.
+## How it works
 
-### A dashboard card
-
-Replace `media_player.lg_tv` and `remote.lg_tv_remote` with your own entity ids.
-
-```yaml
-type: vertical-stack
-cards:
-  - type: media-control
-    entity: media_player.lg_tv
-  - type: grid
-    columns: 3
-    square: false
-    cards:
-      - type: button
-        icon: mdi:power
-        name: Aan/uit
-        tap_action:
-          action: perform-action
-          perform_action: media_player.toggle
-          target:
-            entity_id: media_player.lg_tv
-      - type: button
-        icon: mdi:chevron-up
-        name: Omhoog
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: UP
-      - type: button
-        icon: mdi:home
-        name: Home
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: HOME
-      - type: button
-        icon: mdi:chevron-left
-        name: Links
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: LEFT
-      - type: button
-        icon: mdi:circle-medium
-        name: OK
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: ENTER
-      - type: button
-        icon: mdi:chevron-right
-        name: Rechts
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: RIGHT
-      - type: button
-        icon: mdi:arrow-left
-        name: Terug
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: BACK
-      - type: button
-        icon: mdi:chevron-down
-        name: Omlaag
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: DOWN
-      - type: button
-        icon: mdi:television-classic
-        name: Live TV
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: live:1
-```
-
-## Good to know
-
-- Nothing leaves your network. The connection is plain HTTP on your own network, and every call needs the token from the pairing. Web pages in a browser are refused, because browsers send `Origin`.
-- The TV follows its services only while Home Assistant is connected. Two minutes after the last request, the subscriptions stop.
-- **Live TV:** if a stream's address is not in the playlist as it is (a redirect, say), the channel Live TV marked as played last is used.
+| Part | Where | What |
+|---|---|---|
+| **TV add-on "Home Assistant"** | `tv-addon/` (a CleanYourTV add-on repository) | Runs inside CleanYourTV on the TV. It follows LG's own services while Home Assistant is connected: the app manager, `com.webos.media` (play state), audio and power. It matches the Live TV stream against your playlist and the guide, and answers on port 8801. |
+| **Integration "CleanYourTV"** | `custom_components/cleanyourtv` (HACS) | Finds the TV (LG's SSDP announcement), pairs once, then keeps a long poll open, so the TV answers the moment something changes. It also serves the remote card. |
 
 ## Development
 
 ```sh
 pip install -r requirements_test.txt
-python -m pytest tests                              # the integration against the add-on with a fake TV (needs node)
-node tv-addon/make-index.js                         # after every change of the add-on (and raise its version)
+python -m pytest tests                                             # the integration against the add-on with a fake TV (needs node)
+node tv-addon/make-index.js                                        # after every change of the add-on (and raise its version)
 CYTV_SRC=/path/to/cleanyourtv-WebOS node tests/addon_manifest.test.js
+CYTV_SRC=/path/to/cleanyourtv-WebOS node tools/build-card.js       # the card's pages, from the Phone remote's page
 ```
 
-The add-on runs on Node.js 8.12 (webOS 5 and 6). Its key code (`remotekeys.js`, `ws.js`) is copied from the Phone remote add-on by [@Edenik](https://github.com/Edenik) (MIT).
+The add-on runs on Node.js 8.12 (webOS 5 and 6).
+
+**Credits:**
+
+- [CleanYourTV](https://github.com/lasharor/cleanyourtv-WebOS) by Stefan (lasharor).
+- The Phone remote by [@Edenik](https://github.com/Edenik). Its page is the remote card, and its key code (`remotekeys.js`, `ws.js`) is used by the add-on. MIT.
 
 ---
 
-## Nederlands
+## Nederlands — zo krijg je het werkend
 
-Met deze integratie ziet Home Assistant meteen wat je tv doet:
+**Wat je nodig hebt:**
 
-- welke app er voorop staat;
-- of er iets **speelt of op pauze staat**: Netflix, YouTube, Live TV en elke app die via de tv afspeelt;
-- welke **Live TV-zender** je kijkt, met het **programma** uit de gids en het logo;
-- het **volume** en **mute**;
-- of de tv aan, met scherm uit of in stand-by staat.
+- een **geroote** LG webOS-tv met **CleanYourTV**;
+- Home Assistant met **HACS**, op hetzelfde netwerk als de tv;
+- liefst een **vast IP-adres** voor de tv;
+- om de tv aan te zetten: **TV aanzetten met mobiel** aan in de instellingen van de tv.
 
-Andersom bedient Home Assistant de tv: aan/uit, volume, afspelen/pauze, bron, alle toetsen en tekst. Alles zit in één integratie, met de afstandsbediening erin.
+**Stap 1 — op de tv (eenmalig):**
 
-**Installeren:**
+1. Open de manager-app van CleanYourTV en ga naar **Add-ons** › **Repositories** › **Toevoegen vanaf je telefoon**.
+2. Vul op je telefoon `larsoss/cleanyourtv-webos-homeassistant@main/tv-addon` in, of `…@Beta/tv-addon` voor de bèta.
+3. Ga terug naar **Add-ons**, kies **Home Assistant** › **Installeren**.
 
-1. Op de tv: Add-ons > Repositories > `larsoss/cleanyourtv-webos-homeassistant@main/tv-addon`, en installeer daarna **Home Assistant**.
-2. In HACS: voeg deze repository toe als aangepaste repository (type Integratie) en installeer **CleanYourTV**.
-3. Home Assistant vindt de tv vanzelf (*CleanYourTV gevonden*).
-4. Koppelen gaat zonder code: kies op de tv op de pagina van de add-on **Home Assistant koppelen**, en klik binnen drie minuten in Home Assistant op **Verzenden**.
+Via SSH kan het ook, met de twee `cytv-addons.js`-opdrachten hierboven.
 
-   **Koppelen zonder te vragen** op de pagina van de add-on slaat de stap op de tv over. Dat raad ik af, en het staat standaard uit.
+**Stap 2 — in Home Assistant:**
+
+1. Voeg in HACS deze repository toe als aangepaste repository (type **Integratie**). Download **CleanYourTV** en **herstart Home Assistant**.
+2. Home Assistant vindt de tv vanzelf (**"Gevonden: CleanYourTV"**). Gebeurt dat niet, voeg dan de integratie **CleanYourTV** toe met het IP-adres van de tv.
+3. **Koppelen, zonder code:**
+   - kies op de tv, op de pagina **Home Assistant**, de knop **Home Assistant koppelen**;
+   - klik in Home Assistant binnen drie minuten op **Verzenden**.
+
+**Stap 3 — de afstandsbediening.** Je opent hem op een van deze manieren:
+
+- in de zijbalk: **TV-afstandsbediening**;
+- op de apparaatpagina van de tv: **Bezoeken**;
+- met één klik op een dashboard naar keuze: ga naar Instellingen › Apparaten & diensten › CleanYourTV › **tandwiel** › **Afstandsbediening op een dashboard zetten**.
+
+Je kunt de kaart ook zelf toevoegen via **Kaart toevoegen › CleanYourTV remote**, of:
+
+```yaml
+type: custom:cleanyourtv-remote
+entity: media_player.lg_tv
+height: 720
+```
+
+Zie je **"Custom element doesn't exist"**? Herstart Home Assistant één keer. Sluit daarna de Companion app helemaal af en open hem opnieuw.
+
+**Bèta:** zet in HACS bij CleanYourTV **Bètaversies tonen** aan. Dan krijg je alleen een melding bij een nieuwe bèta of een nieuwe release.

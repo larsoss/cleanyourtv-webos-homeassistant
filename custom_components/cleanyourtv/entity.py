@@ -27,6 +27,8 @@ class CytvEntity(Entity):
             manufacturer="LG",
             model=self._client.model or "webOS TV with CleanYourTV",
             name=entry.title,
+            # the device page's "Visit" opens the remote page for this TV
+            configuration_url=f"homeassistant://cleanyourtv-remote?entry={entry.entry_id}",
         )
 
     async def async_added_to_hass(self) -> None:
