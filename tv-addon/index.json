@@ -3,7 +3,7 @@
     {
       "id": "homeassistant",
       "name": "Home Assistant (beta)",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Home Assistant sees what the TV does (app, playing or paused, Live TV channel and programme, volume) and controls it.",
       "about": "Home Assistant finds the TV by itself (the CleanYourTV integration, github.com/larsoss/cleanyourtv-webos-homeassistant); choose Pair Home Assistant on this page, then Submit in Home Assistant. The TV then tells Home Assistant at once which app is in front, whether its video plays or is paused (Netflix, YouTube, Live TV and every app that plays through the TV), which Live TV channel and programme you watch, the volume and mute, and the power state; Home Assistant sends keys, text, apps, channels, volume and power. Only on your network (port 8801, every call needs the token from the pairing).",
       "preview": "",
@@ -21,10 +21,10 @@
         "luna://com.webos.service.tv.systemproperty/getSystemInfo"
       ],
       "files": {
-        "addon.json": "1dd748113770da056511e29aa92ae5e662c50a65c5f580bb78bb2defe742ec00",
+        "addon.json": "8de9a6380f488c81f563f69a3200d7f373e7ecc5f33f6ee6b4eb8736d4453124",
         "index.html": "6fe78673f7a44efff08316d0c23439a2fc3f0e71f35a8f2458ab63b8951d0f52",
         "remotekeys.js": "557e7b609a36a480f6381be2f64a7560a3558985ef312b96d5ced82ab72a3c02",
-        "service.js": "20b4a44fa46efac5a0b25ad804e516f28dde995183a43db5a00761db64ae5cf4",
+        "service.js": "279ae8833287c30be4c5ee95c8917fd34ad11bdee9bac553997d34547c9fb4e3",
         "ws.js": "37d77e3c42d650613d36aa287d037a3760ff52de5f51992b38e2e6dde7027bde"
       }
     }

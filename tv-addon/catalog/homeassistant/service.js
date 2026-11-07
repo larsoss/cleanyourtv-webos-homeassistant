@@ -376,7 +376,12 @@ function create(ctx, opts) {
       if (!(v >= 0 && v <= 100)) return { ok: false, error: 'bad volume' };
       return ok(await L('luna://com.webos.service.audio/master/setVolume', { volume: v }, { wait: 3000 }));
     },
-    mute: async m => ok(await L('luna://com.webos.service.audio/master/setMute', { mute: !!m.on }, { wait: 3000 })),
+    // master/muteVolume {mute} on webOS 6.5 (checked on an LG 65UP77006LB; it has no setMute); setMuted {muted} on others
+    mute: async m => {
+      const r = await L('luna://com.webos.service.audio/master/muteVolume', { mute: !!m.on }, { wait: 3000 });
+      if (r && r.returnValue !== false) return ok(r);
+      return ok(await L('luna://com.webos.service.audio/master/setMuted', { muted: !!m.on }, { wait: 3000 }));
+    },
   };
 
   // ---- pairing and tokens ----

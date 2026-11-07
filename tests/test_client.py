@@ -92,7 +92,7 @@ async def test_pair_follow_and_act() -> None:
             await tv.async_set_volume(20)
             await addon.wait_for(lambda e: e.get("uri", "").endswith("/setVolume") and e["params"] == {"volume": 20})
             await tv.async_set_mute(True)
-            await addon.wait_for(lambda e: e.get("uri", "").endswith("/setMute") and e["params"] == {"mute": True})
+            await addon.wait_for(lambda e: e.get("uri", "").endswith("/muteVolume") and e["params"] == {"mute": True})
             await tv.async_power("on")
             await addon.wait_for(lambda e: e.get("uri", "").endswith("/turnOnScreen"))
             with pytest.raises(c.CytvError):

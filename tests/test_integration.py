@@ -92,7 +92,7 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     await hass.services.async_call("media_player", "volume_set", {"entity_id": MP, "volume_level": 0.3}, blocking=True)
     await addon.wait_for(lambda e: e.get("uri", "").endswith("/setVolume") and e["params"] == {"volume": 30})
     await hass.services.async_call("media_player", "volume_mute", {"entity_id": MP, "is_volume_muted": False}, blocking=True)
-    await addon.wait_for(lambda e: e.get("uri", "").endswith("/setMute") and e["params"] == {"mute": False})
+    await addon.wait_for(lambda e: e.get("uri", "").endswith("/muteVolume") and e["params"] == {"mute": False})
     await hass.services.async_call("media_player", "media_pause", {"entity_id": MP}, blocking=True)
     await addon.wait_for(lambda e: e == {"ev": "key", "k": "PAUSE"})
     await until(lambda: st(hass, MP).attributes.get("source_list"))
