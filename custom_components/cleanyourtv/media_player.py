@@ -213,7 +213,7 @@ class CytvMediaPlayer(CytvEntity, MediaPlayerEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        out: dict[str, Any] = {}
+        out: dict[str, Any] = {"connected": self._client.connected}
         if self._client.power_state:
             out["power_state"] = self._client.power_state
         live = self._live

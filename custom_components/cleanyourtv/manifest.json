@@ -5,6 +5,11 @@
     "@larsoss"
   ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/larsoss/cleanyourtv-webos-homeassistant",
   "integration_type": "device",
   "iot_class": "local_push",
@@ -15,5 +20,5 @@
       "st": "urn:lge-com:service:webos-second-screen:1"
     }
   ],
-  "version": "0.1.0"
+  "version": "0.2.0b1"
 }

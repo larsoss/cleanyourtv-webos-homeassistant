@@ -15,6 +15,8 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
 from .client import CytvAuthError, CytvError, CytvTV
 from .const import CONF_MAC, CONF_TOKEN, DOMAIN, LISTS_REFRESH_S
@@ -39,6 +41,14 @@ class CytvData:
 
 
 type CytvConfigEntry = ConfigEntry[CytvData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """The remote card's files and its WebSocket commands, once."""
+    from .frontend import async_setup_frontend
+
+    await async_setup_frontend(hass, str((await async_get_integration(hass, DOMAIN)).version))
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry) -> bool:
@@ -78,6 +88,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry) -> bool
     if client.connected:
         _on_change()
 
+    from .frontend import card_secret
+
+    card_secret(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

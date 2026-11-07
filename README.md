@@ -45,6 +45,13 @@ Checked on an LG 65UP77006LB (webOS 6.5.3, firmware 03.53.45) with read-only cal
 
 The add-on and the integration together have not run on a TV yet. The tests run the add-on on a computer, with a fake TV behind it.
 
+## Versions
+
+The `main` branch is the release. The `Beta` branch gets new things first: the integration's versions there end in `b1`, `b2`, … (for example `0.2.0b1`), and the TV add-on's name ends in "(beta)".
+
+- **In HACS:** CleanYourTV > the three dots > **Redownload**, then choose `Beta`.
+- **On the TV:** use the repository address `larsoss/cleanyourtv-webos-homeassistant@Beta/tv-addon`.
+
 ## Install
 
 ### 1. On the TV: the add-on
@@ -162,108 +169,22 @@ Actions:
 
 `media_player.play_media` takes `media_content_type: app` with an app id, or `channel` with a number. The options of the integration can add the Live TV channels to the source list.
 
-### A dashboard card
+### The remote card
 
-Replace `media_player.lg_tv` and `remote.lg_tv_remote` with your own entity ids.
+The integration brings its own card. It is the **Phone remote** of CleanYourTV (by [@Edenik](https://github.com/Edenik)), exactly as it looks on a phone:
+
+- the round pad with OK, VOL and CH, mute, the play bar, Inputs, Keyboard, 123 (numbers and colours) and the power button;
+- the tabs **Remote · Touchpad · Apps · Live**.
+
+It loads by itself, so there is no resource to add. In a dashboard choose **Add card > CleanYourTV remote**, or:
 
 ```yaml
-type: vertical-stack
-cards:
-  - type: media-control
-    entity: media_player.lg_tv
-  - type: grid
-    columns: 3
-    square: false
-    cards:
-      - type: button
-        icon: mdi:power
-        name: Aan/uit
-        tap_action:
-          action: perform-action
-          perform_action: media_player.toggle
-          target:
-            entity_id: media_player.lg_tv
-      - type: button
-        icon: mdi:chevron-up
-        name: Omhoog
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: UP
-      - type: button
-        icon: mdi:home
-        name: Home
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: HOME
-      - type: button
-        icon: mdi:chevron-left
-        name: Links
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: LEFT
-      - type: button
-        icon: mdi:circle-medium
-        name: OK
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: ENTER
-      - type: button
-        icon: mdi:chevron-right
-        name: Rechts
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: RIGHT
-      - type: button
-        icon: mdi:arrow-left
-        name: Terug
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: BACK
-      - type: button
-        icon: mdi:chevron-down
-        name: Omlaag
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: DOWN
-      - type: button
-        icon: mdi:television-classic
-        name: Live TV
-        tap_action:
-          action: perform-action
-          perform_action: remote.send_command
-          target:
-            entity_id: remote.lg_tv_remote
-          data:
-            command: live:1
+type: custom:cleanyourtv-remote
+entity: media_player.lg_tv
+height: 720
 ```
+
+The card follows Home Assistant's language. All of CleanYourTV's languages are in it, Dutch too.
 
 ## Good to know
 
@@ -278,6 +199,7 @@ pip install -r requirements_test.txt
 python -m pytest tests                              # the integration against the add-on with a fake TV (needs node)
 node tv-addon/make-index.js                         # after every change of the add-on (and raise its version)
 CYTV_SRC=/path/to/cleanyourtv-WebOS node tests/addon_manifest.test.js
+CYTV_SRC=/path/to/cleanyourtv-WebOS node tools/build-card.js   # the card's pages, from the Phone remote's page (after it changed)
 ```
 
 The add-on runs on Node.js 8.12 (webOS 5 and 6). Its key code (`remotekeys.js`, `ws.js`) is copied from the Phone remote add-on by [@Edenik](https://github.com/Edenik) (MIT).
@@ -304,3 +226,10 @@ Andersom bedient Home Assistant de tv: aan/uit, volume, afspelen/pauze, bron, al
 4. Koppelen gaat zonder code: kies op de tv op de pagina van de add-on **Home Assistant koppelen**, en klik binnen drie minuten in Home Assistant op **Verzenden**.
 
    **Koppelen zonder te vragen** op de pagina van de add-on slaat de stap op de tv over. Dat raad ik af, en het staat standaard uit.
+
+**Afstandsbediening:** de integratie heeft een eigen kaart. Dat is de Phone remote van Edenik, precies zoals op je telefoon. Kies op je dashboard **Kaart toevoegen > CleanYourTV remote**, of gebruik:
+
+```yaml
+type: custom:cleanyourtv-remote
+entity: media_player.lg_tv
+```

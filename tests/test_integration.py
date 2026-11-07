@@ -170,3 +170,41 @@ async def test_found_on_the_network(hass: HomeAssistant, addon, monkeypatch) -> 
     monkeypatch.setattr(config_flow, "DEFAULT_PORT", 1)
     r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_SSDP}, data=info)
     assert r["type"] is FlowResultType.ABORT and r["reason"] in ("not_cleanyourtv", "already_configured")
+
+
+async def test_remote_card_backend(hass: HomeAssistant, addon, hass_ws_client, hass_client_no_auth) -> None:
+    """The card's WebSocket commands and its pictures (the card itself was checked in Chromium with a stand-in for Home Assistant)."""
+    await addon.open_pairing()
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_DEVICE_NAME: "HA"}
+    )
+    entry = r["result"]
+    await hass.async_block_till_done()
+    await until(lambda: st(hass, MP).attributes.get("connected") is True)
+
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "cleanyourtv/card", "entity_id": MP})
+    card = (await ws.receive_json())["result"]
+    assert card["entry_id"] == entry.entry_id and len(card["secret"]) == 32
+
+    await ws.send_json({"id": 2, "type": "cleanyourtv/action", "entry_id": entry.entry_id, "action": {"t": "key", "k": "HOME", "n": 7}})
+    assert (await ws.receive_json())["result"] == {"ok": True, "error": ""}
+    await addon.wait_for(lambda e: e == {"ev": "key", "k": "HOME"})
+    await ws.send_json({"id": 3, "type": "cleanyourtv/action", "entry_id": entry.entry_id, "action": {"t": "selfdestruct"}})
+    assert (await ws.receive_json())["result"]["ok"] is False
+    await ws.send_json({"id": 4, "type": "cleanyourtv/list", "entry_id": entry.entry_id, "kind": "live"})
+    assert [c["num"] for c in (await ws.receive_json())["result"]["channels"]] == [1, 24]
+    await ws.send_json({"id": 5, "type": "cleanyourtv/list", "entry_id": entry.entry_id, "kind": "apps"})
+    assert (await ws.receive_json())["result"]["apps"][0]["id"] == "netflix"
+
+    client = await hass_client_no_auth()
+    resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/icon/netflix?t={card['secret']}")
+    assert resp.status == 200 and await resp.read() == b"PNG"
+    resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/icon/netflix?t=wrong")
+    assert resp.status == 401
+    resp = await client.get("/cleanyourtv_static/cleanyourtv-remote.js")
+    assert resp.status == 200 and "cleanyourtv-remote" in await resp.text()
+    resp = await client.get("/cleanyourtv_static/pages/nl.html")
+    assert resp.status == 200 and "Afstandsbediening" in await resp.text()
+    assert await hass.config_entries.async_unload(entry.entry_id)

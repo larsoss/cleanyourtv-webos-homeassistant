@@ -35,7 +35,7 @@ const PORT = 8801, // after the Phone remote (8799) and the page that adds a rep
   ACTIVE_MS = 2 * 60 * 1000, // the TV is followed while a Home Assistant asked this recently
   TRIES = 5, // pairing tries per address per minute
   LIST_MS = 60000, // the playlist (for matching a stream) is read again after this long
-  RATE = { burst: 40, perSecond: 20 }; // actions a client may send
+  RATE = { burst: 80, perSecond: 50 }; // actions a client may send (the card's touchpad moves the pointer many times a second)
 const TOKEN = /^([0-9a-f]{8})\.([0-9a-f]{32})$/;
 const SUBS = {
   app: ['luna://com.webos.applicationManager/getForegroundAppInfo', { subscribe: true }],
@@ -364,6 +364,8 @@ function create(ctx, opts) {
       }
       return ok(r);
     },
+    // Live TV, where a playlist is added (the remote card's Live tab when there is none yet)
+    liveSetup: async () => ok(await apiRequest('POST', '/api/launch', { id: HOME, params: { live: true } })),
     tvpower: async m => {
       const c = POWER[String(m.a || '')];
       if (!c) return { ok: false, error: 'bad action' };
