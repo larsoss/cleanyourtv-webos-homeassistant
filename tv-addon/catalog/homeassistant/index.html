@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Home Assistant</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+  #wrap { position: absolute; left: 8%; right: 8%; top: 8%; bottom: 6%; }
+  h1 { font-size: 3.4vw; font-weight: 300; margin: 0 0 1.2vw 0; }
+  .sub { font-size: 1.5vw; color: #9aa; margin-bottom: 2.5vw; line-height: 1.4; }
+  #code { font-size: 9vw; letter-spacing: 1.5vw; font-weight: 300; margin: 1vw 0; }
+  #addr { font-size: 1.8vw; color: #cde; }
+  .btn { display: inline-block; font-size: 1.8vw; padding: 0.9vw 2vw; margin: 0.6vw 1vw 0.6vw 0; border-radius: 0.6vw; background: #1d2630; color: #fff; }
+  .btn.f { background: #3d8bfd; }
+  .row { font-size: 1.7vw; padding: 0.8vw 0; border-bottom: 1px solid #222; }
+  .row span { color: #789; font-size: 1.4vw; margin-left: 1vw; }
+  #now { position: absolute; left: 0; right: 0; bottom: 0; font-size: 1.5vw; color: #789; }
+  #msg { font-size: 1.6vw; color: #fc6; min-height: 2vw; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1 id="title"></h1>
+  <div class="sub" id="intro"></div>
+  <div id="pairing" style="display:none">
+    <div class="sub" id="codeLabel"></div>
+    <div id="code"></div>
+    <div id="addr"></div>
+  </div>
+  <div id="buttons"></div>
+  <div id="msg"></div>
+  <div id="list"></div>
+  <div id="now"></div>
+</div>
+<script src="/addon/sdk.js"></script>
+<script>
+  /* ES5 only (Chromium 68). Up and Down move between the buttons, OK presses one, Back goes Home (sdk.js). */
+  var NL = /^nl/i.test(navigator.language || '');
+  var T = NL
+    ? {
+        title: 'Home Assistant',
+        intro: 'Koppel Home Assistant met deze tv: Home Assistant ziet dan meteen welke app er voorop staat, of er iets speelt of op pauze staat, welke Live TV-zender en welk programma je kijkt en het volume, en kan de tv bedienen. Voeg in Home Assistant de integratie CleanYourTV toe.',
+        pair: 'Home Assistant koppelen', stop: 'Stoppen met koppelen', codeLabel: 'Vul deze code in bij Home Assistant (3 minuten geldig):',
+        address: 'Adres van de tv: ', none: 'Nog geen Home Assistant gekoppeld.', remove: 'Verwijderen', removed: 'Verwijderd.',
+        paired: 'gekoppeld', seen: 'laatst gezien', now: 'Nu: ', playing: 'speelt', paused: 'pauze', nothing: 'niets'
+      }
+    : {
+        title: 'Home Assistant',
+        intro: 'Pair Home Assistant with this TV: Home Assistant then sees at once which app is in front, whether it plays or is paused, which Live TV channel and programme you watch and the volume, and can control the TV. In Home Assistant, add the CleanYourTV integration.',
+        pair: 'Pair Home Assistant', stop: 'Stop pairing', codeLabel: 'Enter this code in Home Assistant (valid for 3 minutes):',
+        address: 'Address of the TV: ', none: 'No Home Assistant is paired yet.', remove: 'Remove', removed: 'Removed.',
+        paired: 'paired', seen: 'last seen', now: 'Now: ', playing: 'playing', paused: 'paused', nothing: 'nothing'
+      };
+  var $ = function (id) { return document.getElementById(id); };
+  $('title').textContent = T.title;
+  $('intro').textContent = T.intro;
+  $('codeLabel').textContent = T.codeLabel;
+  var focus = 0, buttons = [], last = null;
+
+  function when(ms) {
+    if (!ms) return '';
+    var d = new Date(ms);
+    return d.toLocaleDateString() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+  function button(label, fn) {
+    var b = document.createElement('div');
+    b.className = 'btn';
+    b.textContent = label;
+    b.onclick = fn;
+    buttons.push(b);
+    return b;
+  }
+  function draw(s) {
+    last = s;
+    buttons = [];
+    var bt = $('buttons'), list = $('list');
+    bt.innerHTML = '';
+    list.innerHTML = '';
+    $('pairing').style.display = s.pairing ? 'block' : 'none';
+    if (s.pairing) {
+      $('code').textContent = s.pairing.code;
+      $('addr').textContent = s.address ? T.address + s.address.split(':')[0] : '';
+    }
+    bt.appendChild(button(s.pairing ? T.stop : T.pair, function () {
+      CYTV.api('/pair', s.pairing ? { stop: true } : {}).then(refresh);
+    }));
+    if (!s.clients.length) {
+      var e = document.createElement('div');
+      e.className = 'row';
+      e.textContent = T.none;
+      list.appendChild(e);
+    }
+    s.clients.forEach(function (c) {
+      var r = document.createElement('div');
+      r.className = 'row';
+      r.textContent = c.name + ' ';
+      var sp = document.createElement('span');
+      sp.textContent = T.paired + ' ' + when(c.created) + ' · ' + T.seen + ' ' + when(c.seen);
+      r.appendChild(sp);
+      list.appendChild(r);
+      list.appendChild(button(T.remove + ': ' + c.name, function () {
+        CYTV.api('/revoke', { id: c.id }).then(function () {
+          $('msg').textContent = T.removed;
+          refresh();
+        });
+      }));
+    });
+    var n = s.now || {};
+    var what = n.live ? n.live.num + ' ' + n.live.name + (n.live.programme ? ' – ' + n.live.programme.title : '') : n.app || '';
+    var st = n.media && n.media.state === 'playing' ? T.playing : n.media && n.media.state === 'paused' ? T.paused : '';
+    $('now').textContent = what ? T.now + what + (st ? ' (' + st + ')' : '') : '';
+    focus = Math.min(focus, buttons.length - 1);
+    paint();
+  }
+  function paint() {
+    for (var i = 0; i < buttons.length; i++) buttons[i].className = 'btn' + (i === focus ? ' f' : '');
+  }
+  function refresh() {
+    return CYTV.api('/status').then(draw);
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.keyCode === 38 || e.keyCode === 37) { focus = Math.max(0, focus - 1); paint(); e.preventDefault(); }
+    else if (e.keyCode === 40 || e.keyCode === 39) { focus = Math.min(buttons.length - 1, focus + 1); paint(); e.preventDefault(); }
+    else if (e.keyCode === 13 && buttons[focus]) { buttons[focus].onclick(); e.preventDefault(); }
+  });
+  refresh();
+  /* the code, a pairing that just finished and the "now" line follow without a key press */
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>

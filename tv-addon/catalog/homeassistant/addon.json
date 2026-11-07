@@ -1,0 +1,21 @@
+{
+  "id": "homeassistant",
+  "name": "Home Assistant",
+  "version": "0.1.0",
+  "minService": "1.6.18",
+  "kind": "service",
+  "description": "Home Assistant sees what the TV does (app, playing or paused, Live TV channel and programme, volume) and controls it.",
+  "about": "Pairs with the CleanYourTV integration of Home Assistant (github.com/larsoss/cleanyourtv-webos-homeassistant) with a 6-digit code. The TV then tells Home Assistant at once which app is in front, whether its video plays or is paused (Netflix, YouTube, Live TV and every app that plays through the TV), which Live TV channel and programme you watch, the volume and mute, and the power state; Home Assistant sends keys, text, apps, channels, volume and power. Only on your network (port 8801, every call needs the token from the pairing).",
+  "entry": { "service": "service.js", "page": "index.html" },
+  "permissions": ["luna"],
+  "luna": [
+    { "uri": "luna://com.webos.applicationManager/getForegroundAppInfo" },
+    { "uri": "luna://com.webos.media/" },
+    { "uri": "luna://com.webos.service.audio/" },
+    { "uri": "luna://com.webos.service.tvpower/power/" },
+    { "uri": "luna://com.webos.service.networkinput/" },
+    { "uri": "luna://com.webos.service.ime/" },
+    { "uri": "luna://com.webos.service.tv.systemproperty/getSystemInfo" }
+  ],
+  "tile": { "label": "Home Assistant", "icon": "home", "placement": "page" }
+}

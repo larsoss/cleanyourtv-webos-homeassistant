@@ -1,0 +1,89 @@
+send_text:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    text:
+      required: true
+      example: "Stranger Things"
+      selector:
+        text:
+    enter:
+      default: false
+      selector:
+        boolean:
+launch_app:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    app_id:
+      required: true
+      example: com.webos.app.hdmi1
+      selector:
+        text:
+live_channel:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    channel:
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 99999
+          mode: box
+tv_power:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    action:
+      required: true
+      selector:
+        select:
+          options:
+            - "off"
+            - "on"
+            - standby
+            - reboot
+            - shutdown
+pointer:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    dx:
+      default: 0
+      selector:
+        number:
+          min: -500
+          max: 500
+    dy:
+      default: 0
+      selector:
+        number:
+          min: -500
+          max: 500
+    click:
+      default: false
+      selector:
+        boolean:
+    scroll:
+      default: 0
+      selector:
+        number:
+          min: -50
+          max: 50
+refresh_lists:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote

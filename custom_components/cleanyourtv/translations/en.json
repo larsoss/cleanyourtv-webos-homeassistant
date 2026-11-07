@@ -1,0 +1,185 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pair with the TV",
+        "description": "Install the Home Assistant add-on on the TV first (manager app > Add-ons > Repositories > add larsoss/cleanyourtv-webos-homeassistant@main/tv-addon, then install Home Assistant). On the TV open the add-on's page and choose Pair Home Assistant: it shows a 6-digit code.",
+        "data": {
+          "host": "Address of the TV",
+          "code": "Code from the TV",
+          "device_name": "Name on the TV",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "The IP address of the TV, best a fixed one in your router.",
+          "code": "The 6 digits on the TV screen. A code works once.",
+          "device_name": "The TV lists Home Assistant under this name on the add-on's page.",
+          "port": "8801 unless you changed it."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Pair again",
+        "description": "The TV at {host} no longer accepts Home Assistant (it was removed on the TV). On the TV open the Home Assistant add-on's page, choose Pair Home Assistant and enter the new code.",
+        "data": {
+          "code": "Code from the TV",
+          "device_name": "Name on the TV"
+        }
+      },
+      "reconfigure": {
+        "title": "Address of the TV",
+        "data": {
+          "host": "Address of the TV",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The TV did not answer. Is it on, on the same network, and is the Home Assistant add-on installed and switched on?",
+      "too_many_tries": "Too many tries. Wait a minute.",
+      "too_many_devices": "Too many Home Assistants are paired. Remove one on the TV.",
+      "unknown": "Pairing failed: {message}",
+      "not_waiting": "The TV is not waiting for a code. On the TV open the Home Assistant add-on's page and choose Pair Home Assistant.",
+      "wrong_code": "That code is not right. Check the 6 digits on the TV."
+    },
+    "abort": {
+      "already_configured": "This TV is already set up.",
+      "reauth_successful": "Paired again.",
+      "reconfigure_successful": "The address is saved."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "live_sources": "Live TV channels as sources"
+        },
+        "data_description": {
+          "live_sources": "Adds the channels of your Live TV playlist to the media player's source list. A long playlist makes the list long."
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "screen_off": {
+        "name": "Screen off"
+      },
+      "screen_on": {
+        "name": "Screen on"
+      },
+      "standby": {
+        "name": "Standby"
+      },
+      "restart": {
+        "name": "Restart"
+      },
+      "shut_down": {
+        "name": "Shut down"
+      }
+    },
+    "remote": {
+      "remote": {
+        "name": "Remote"
+      }
+    },
+    "sensor": {
+      "power_state": {
+        "name": "Power state",
+        "state": {
+          "active": "On",
+          "screen_off": "Screen off",
+          "screen_saver": "Screen saver",
+          "active_standby": "Standby (quick start)",
+          "suspend": "Standby",
+          "power_off": "Off",
+          "unknown_state": "Unknown",
+          "unreachable": "Not reachable"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "no_mac": {
+      "message": "The MAC address of the TV is not known yet: turn the TV on once with its own remote while Home Assistant is connected."
+    },
+    "unknown_source": {
+      "message": "Unknown source: {source}"
+    },
+    "unknown_command": {
+      "message": "Unknown command: {command}. Use a key name (UP, ENTER, HOME, VOLUMEUP, RED, 1 ...) or text:, launch:, live:, enter, delete, click."
+    }
+  },
+  "services": {
+    "send_text": {
+      "name": "Send text",
+      "description": "Types text into the text field that is open on the TV.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "The text to type."
+        },
+        "enter": {
+          "name": "Enter",
+          "description": "Press Enter after the text."
+        }
+      }
+    },
+    "launch_app": {
+      "name": "Open app",
+      "description": "Opens an app or input on the TV. The remote's attributes list the ids.",
+      "fields": {
+        "app_id": {
+          "name": "App id",
+          "description": "For example com.webos.app.hdmi1 or netflix."
+        }
+      }
+    },
+    "live_channel": {
+      "name": "Live TV channel",
+      "description": "Opens Live TV of CleanYourTV on a channel of your playlist.",
+      "fields": {
+        "channel": {
+          "name": "Channel",
+          "description": "The channel number."
+        }
+      }
+    },
+    "tv_power": {
+      "name": "Power",
+      "description": "One of the power calls of the TV.",
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "off: screen off; on: screen on; standby; reboot; shutdown (only the TV's own remote turns it back on)."
+        }
+      }
+    },
+    "pointer": {
+      "name": "Pointer",
+      "description": "Moves the TV's pointer, clicks or scrolls.",
+      "fields": {
+        "dx": {
+          "name": "Right",
+          "description": "Pixels to the right (negative: left)."
+        },
+        "dy": {
+          "name": "Down",
+          "description": "Pixels down (negative: up)."
+        },
+        "click": {
+          "name": "Click",
+          "description": "Click after moving."
+        },
+        "scroll": {
+          "name": "Scroll",
+          "description": "Steps to scroll (negative: up)."
+        }
+      }
+    },
+    "refresh_lists": {
+      "name": "Refresh lists",
+      "description": "Reads the apps, inputs and Live TV channels of the TV again."
+    }
+  }
+}

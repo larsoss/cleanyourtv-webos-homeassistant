@@ -1,0 +1,43 @@
+{
+  "entity": {
+    "button": {
+      "screen_off": {
+        "default": "mdi:monitor-off"
+      },
+      "standby": {
+        "default": "mdi:power-sleep"
+      },
+      "shut_down": {
+        "default": "mdi:power"
+      },
+      "screen_on": {
+        "default": "mdi:monitor"
+      }
+    },
+    "sensor": {
+      "power_state": {
+        "default": "mdi:television"
+      }
+    }
+  },
+  "services": {
+    "send_text": {
+      "service": "mdi:keyboard"
+    },
+    "launch_app": {
+      "service": "mdi:apps"
+    },
+    "live_channel": {
+      "service": "mdi:television-classic"
+    },
+    "tv_power": {
+      "service": "mdi:power"
+    },
+    "pointer": {
+      "service": "mdi:cursor-default"
+    },
+    "refresh_lists": {
+      "service": "mdi:refresh"
+    }
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Koppelen met de tv",
+        "description": "Installeer eerst de add-on Home Assistant op de tv (manager-app > Add-ons > Repositories > voeg larsoss/cleanyourtv-webos-homeassistant@main/tv-addon toe, installeer dan Home Assistant). Open op de tv de pagina van de add-on en kies Home Assistant koppelen: hij toont een code van 6 cijfers.",
+        "data": {
+          "host": "Adres van de tv",
+          "code": "Code van de tv",
+          "device_name": "Naam op de tv",
+          "port": "Poort"
+        },
+        "data_description": {
+          "host": "Het IP-adres van de tv, liefst een vast adres in je router.",
+          "code": "De 6 cijfers op het tv-scherm. Een code werkt één keer.",
+          "device_name": "Onder deze naam staat Home Assistant op de pagina van de add-on.",
+          "port": "8801, tenzij je het veranderd hebt."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw koppelen",
+        "description": "De tv op {host} accepteert Home Assistant niet meer (verwijderd op de tv). Open op de tv de pagina van de add-on Home Assistant, kies Home Assistant koppelen en vul de nieuwe code in.",
+        "data": {
+          "code": "Code van de tv",
+          "device_name": "Naam op de tv"
+        }
+      },
+      "reconfigure": {
+        "title": "Adres van de tv",
+        "data": {
+          "host": "Adres van de tv",
+          "port": "Poort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "De tv antwoordt niet. Staat hij aan, op hetzelfde netwerk, en is de add-on Home Assistant geïnstalleerd en aan?",
+      "too_many_tries": "Te veel pogingen. Wacht een minuut.",
+      "too_many_devices": "Er zijn te veel Home Assistants gekoppeld. Verwijder er een op de tv.",
+      "unknown": "Koppelen mislukt: {message}",
+      "not_waiting": "De tv wacht niet op een code. Open op de tv de pagina van de add-on Home Assistant en kies Home Assistant koppelen.",
+      "wrong_code": "Die code klopt niet. Controleer de 6 cijfers op de tv."
+    },
+    "abort": {
+      "already_configured": "Deze tv is al ingesteld.",
+      "reauth_successful": "Opnieuw gekoppeld.",
+      "reconfigure_successful": "Het adres is opgeslagen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties",
+        "data": {
+          "live_sources": "Live TV-zenders als bron"
+        },
+        "data_description": {
+          "live_sources": "Zet de zenders van je Live TV-afspeellijst in de bronnenlijst van de mediaspeler. Bij een lange afspeellijst wordt de lijst lang."
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "screen_off": {
+        "name": "Scherm uit"
+      },
+      "screen_on": {
+        "name": "Scherm aan"
+      },
+      "standby": {
+        "name": "Stand-by"
+      },
+      "restart": {
+        "name": "Herstarten"
+      },
+      "shut_down": {
+        "name": "Volledig uitzetten"
+      }
+    },
+    "remote": {
+      "remote": {
+        "name": "Afstandsbediening"
+      }
+    },
+    "sensor": {
+      "power_state": {
+        "name": "Stroomstatus",
+        "state": {
+          "active": "Aan",
+          "screen_off": "Scherm uit",
+          "screen_saver": "Schermbeveiliging",
+          "active_standby": "Stand-by (snel starten)",
+          "suspend": "Stand-by",
+          "power_off": "Uit",
+          "unknown_state": "Onbekend",
+          "unreachable": "Niet bereikbaar"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "no_mac": {
+      "message": "Het MAC-adres van de tv is nog niet bekend: zet de tv één keer aan met zijn eigen afstandsbediening terwijl Home Assistant verbonden is."
+    },
+    "unknown_source": {
+      "message": "Onbekende bron: {source}"
+    },
+    "unknown_command": {
+      "message": "Onbekend commando: {command}. Gebruik een toetsnaam (UP, ENTER, HOME, VOLUMEUP, RED, 1 ...) of text:, launch:, live:, enter, delete, click."
+    }
+  },
+  "services": {
+    "send_text": {
+      "name": "Tekst sturen",
+      "description": "Typt tekst in het tekstveld dat op de tv open staat.",
+      "fields": {
+        "text": {
+          "name": "Tekst",
+          "description": "De tekst om te typen."
+        },
+        "enter": {
+          "name": "Enter",
+          "description": "Na de tekst op Enter drukken."
+        }
+      }
+    },
+    "launch_app": {
+      "name": "App openen",
+      "description": "Opent een app of ingang op de tv. De attributen van de afstandsbediening tonen de id's.",
+      "fields": {
+        "app_id": {
+          "name": "App-id",
+          "description": "Bijvoorbeeld com.webos.app.hdmi1 of netflix."
+        }
+      }
+    },
+    "live_channel": {
+      "name": "Live TV-zender",
+      "description": "Opent Live TV van CleanYourTV op een zender uit je afspeellijst.",
+      "fields": {
+        "channel": {
+          "name": "Zender",
+          "description": "Het zendernummer."
+        }
+      }
+    },
+    "tv_power": {
+      "name": "Stroom",
+      "description": "Een van de stroomfuncties van de tv.",
+      "fields": {
+        "action": {
+          "name": "Actie",
+          "description": "off: scherm uit; on: scherm aan; standby; reboot: herstarten; shutdown: volledig uit (alleen de eigen afstandsbediening zet hem weer aan)."
+        }
+      }
+    },
+    "pointer": {
+      "name": "Aanwijzer",
+      "description": "Beweegt de aanwijzer van de tv, klikt of scrolt.",
+      "fields": {
+        "dx": {
+          "name": "Rechts",
+          "description": "Pixels naar rechts (negatief: links)."
+        },
+        "dy": {
+          "name": "Omlaag",
+          "description": "Pixels omlaag (negatief: omhoog)."
+        },
+        "click": {
+          "name": "Klikken",
+          "description": "Klikken na het bewegen."
+        },
+        "scroll": {
+          "name": "Scrollen",
+          "description": "Stappen scrollen (negatief: omhoog)."
+        }
+      }
+    },
+    "refresh_lists": {
+      "name": "Lijsten verversen",
+      "description": "Leest de apps, ingangen en Live TV-zenders van de tv opnieuw."
+    }
+  }
+}

@@ -1,0 +1,50 @@
+# hassfest and HACS check the integration's files; the tests run it against the real Phone remote add-on of CleanYourTV (its dev branch)
+name: Validate
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lasharor/cleanyourtv-WebOS
+          ref: refs/heads/dev
+          path: cleanyourtv-WebOS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements_test.txt
+      - run: ruff check custom_components tests --select E,F,W,I,B,UP,SIM --ignore E501
+      - run: ruff format --check custom_components tests
+      - run: python -m pytest tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 8.12.0
+      - name: the TV add-on and the tests on Node 8.12 (webOS 5 and 6)
+        run: |
+          for f in tv-addon/catalog/homeassistant/*.js; do node --check "$f"; done
+          CYTV_SRC=$GITHUB_WORKSPACE/cleanyourtv-WebOS node tests/addon_manifest.test.js
+          python -m pytest tests -v
