@@ -18,7 +18,7 @@ from typing import Any
 
 import voluptuous as vol
 from aiohttp import web
-from homeassistant.components import websocket_api
+from homeassistant.components import panel_custom, websocket_api
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
@@ -45,6 +45,7 @@ async def async_setup_frontend(hass: HomeAssistant, version: str) -> None:
     websocket_api.async_register_command(hass, ws_card)
     websocket_api.async_register_command(hass, ws_action)
     websocket_api.async_register_command(hass, ws_list)
+    websocket_api.async_register_command(hass, ws_tvs)
     hass.http.register_view(CytvPictureView())
 
 
@@ -122,6 +123,40 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     except CytvError as err:
         connection.send_result(msg["id"], {"error": str(err)})
         return
+    connection.send_result(msg["id"], out)
+
+
+PANEL = "cleanyourtv-remote"  # /cleanyourtv-remote: the remote as a page of its own
+
+
+async def async_setup_panel(hass: HomeAssistant, version: str, sidebar: bool) -> None:
+    """The remote as a page: in the sidebar (an option of the integration, on by default) or only reachable from the device page."""
+    from homeassistant.components import frontend
+
+    nl = str(hass.config.language or "").startswith("nl")
+    if PANEL in hass.data.get("frontend_panels", {}):
+        frontend.async_remove_panel(hass, PANEL)
+    await panel_custom.async_register_panel(
+        hass,
+        frontend_url_path=PANEL,
+        webcomponent_name="cleanyourtv-panel",
+        module_url=f"{STATIC_URL}/cleanyourtv-panel.js?v={version}",
+        sidebar_title=("TV-afstandsbediening" if nl else "TV remote") if sidebar else None,
+        sidebar_icon="mdi:remote-tv" if sidebar else None,
+        require_admin=False,
+    )
+
+
+@websocket_api.websocket_command({vol.Required("type"): "cleanyourtv/tvs"})
+@callback
+def ws_tvs(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Every CleanYourTV TV with its media player, for the remote page."""
+    reg = er.async_get(hass)
+    out = []
+    for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+        mp = next((e.entity_id for e in er.async_entries_for_config_entry(reg, entry.entry_id) if e.domain == "media_player"), None)
+        if mp:
+            out.append({"entry_id": entry.entry_id, "title": entry.title, "entity_id": mp})
     connection.send_result(msg["id"], out)
 
 

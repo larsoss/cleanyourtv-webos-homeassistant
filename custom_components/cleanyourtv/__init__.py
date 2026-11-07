@@ -92,7 +92,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry) -> bool
 
     card_secret(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await _update_panel(hass, joining=entry)
     return True
+
+
+async def _update_panel(hass: HomeAssistant, leaving: str | None = None, joining: ConfigEntry | None = None) -> None:
+    """The remote page: in the sidebar when a TV wants it there (the option), only on the device page otherwise, gone without TVs."""
+    from homeassistant.components import frontend as ha_frontend
+
+    from .const import CONF_SIDEBAR
+    from .frontend import PANEL, async_setup_panel
+
+    # the entry being set up is not "loaded" yet: it is added by hand
+    entries = [e for e in hass.config_entries.async_loaded_entries(DOMAIN) if e.entry_id not in (leaving, joining and joining.entry_id)]
+    if joining is not None:
+        entries.append(joining)
+    if not entries:
+        if PANEL in hass.data.get("frontend_panels", {}):
+            ha_frontend.async_remove_panel(hass, PANEL)
+        return
+    version = str((await async_get_integration(hass, DOMAIN)).version)
+    await async_setup_panel(hass, version, any(e.options.get(CONF_SIDEBAR, True) for e in entries))
 
 
 def refresh_lists(hass: HomeAssistant, entry: CytvConfigEntry) -> None:
@@ -121,6 +141,7 @@ async def _refresh_lists(hass: HomeAssistant, entry: CytvConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: CytvConfigEntry) -> bool:
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await _update_panel(hass, leaving=entry.entry_id)
     task = entry.runtime_data.lists_task
     if task and not task.done():
         task.cancel()

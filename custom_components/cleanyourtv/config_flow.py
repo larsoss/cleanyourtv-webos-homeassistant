@@ -12,11 +12,12 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResu
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
 
 from .client import DEFAULT_PORT, CytvError, CytvPairError, CytvTV, async_hello, async_pair
-from .const import CONF_DEVICE_NAME, CONF_LIVE_SOURCES, CONF_MAC, CONF_TOKEN, DEFAULT_DEVICE_NAME, DOMAIN
+from .const import CONF_DEVICE_NAME, CONF_LIVE_SOURCES, CONF_MAC, CONF_SIDEBAR, CONF_TOKEN, DEFAULT_DEVICE_NAME, DOMAIN
 
 PAIR_ERRORS = ("not_waiting", "too_many_tries", "too_many_devices")
 
@@ -162,8 +163,43 @@ class CytvConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class CytvOptionsFlow(OptionsFlow):
+    """Settings, and putting the remote on a dashboard of one's choice."""
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="init", menu_options=["settings", "dashboard"])
+
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
-        schema = vol.Schema({vol.Required(CONF_LIVE_SOURCES, default=self.config_entry.options.get(CONF_LIVE_SOURCES, False)): bool})
-        return self.async_show_form(step_id="init", data_schema=schema)
+            return self.async_create_entry(data={**self.config_entry.options, **user_input})
+        o = self.config_entry.options
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_SIDEBAR, default=o.get(CONF_SIDEBAR, True)): bool,
+                vol.Required(CONF_LIVE_SOURCES, default=o.get(CONF_LIVE_SOURCES, False)): bool,
+            }
+        )
+        return self.async_show_form(step_id="settings", data_schema=schema)
+
+    async def async_step_dashboard(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Add a view "TV remote" with the remote card to a dashboard: nothing on the dashboard is changed or removed."""
+        from .dashboard import add_remote_view, storage_dashboards
+
+        choices = await storage_dashboards(self.hass)
+        if not choices:
+            return self.async_abort(reason="no_dashboard")
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                path = await add_remote_view(self.hass, self.config_entry, user_input["dashboard"])
+            except ValueError:
+                errors["base"] = "dashboard_failed"
+            else:
+                return self.async_abort(reason="added_to_dashboard", description_placeholders={"path": path})
+        schema = vol.Schema(
+            {
+                vol.Required("dashboard"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=[selector.SelectOptionDict(value=k, label=v) for k, v in choices.items()])
+                )
+            }
+        )
+        return self.async_show_form(step_id="dashboard", data_schema=schema, errors=errors)

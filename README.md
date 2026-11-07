@@ -88,7 +88,7 @@ It works like the button of a Hue bridge:
 
 ![Pairing in Home Assistant](docs/screenshots/ha-pair.png)
 
-That's it. The TV appears as a device with a media player, a remote, buttons and a power-state sensor:
+That's it. The TV appears as a device with a media player, a remote, buttons and a power-state sensor. **Visit** opens its remote:
 
 ![The TV as a device in Home Assistant](docs/screenshots/ha-device.png)
 
@@ -98,11 +98,26 @@ The add-on's page on the TV shows the paired Home Assistants and can remove one:
 
 ---
 
-## Step 3 — The remote card
+## Step 3 — The remote
 
-The integration brings its own card. You do not have to install it separately or add it as a resource.
+The integration brings the remote along. You do not have to install it separately or add it as a resource. There are three ways to open it.
 
-**Edit dashboard › Add card › "CleanYourTV remote"**, or in YAML:
+**1. In the sidebar: "TV remote".** Right after pairing, a page with the remote appears in the sidebar. With several TVs, choose one at the top.
+
+**2. From the TV's device page: "Visit".** It opens that TV's remote page. You can switch the sidebar entry off in the integration's settings; this link stays.
+
+![The remote as a page of its own: "TV remote" in the sidebar](docs/screenshots/ha-panel.png)
+
+**3. On a dashboard of your choice, with one click:**
+
+1. Go to **Settings › Devices & services › CleanYourTV** and open the **cogwheel** (Configure).
+2. Choose **Put the remote on a dashboard** and pick the dashboard.
+
+A new view **"TV remote"** is added to that dashboard, with the media player and the remote. Nothing else on the dashboard changes.
+
+This works for dashboards made in the UI. The automatic Overview can only be changed once you have taken control of it.
+
+**Or add the card yourself:** **Edit dashboard › Add card › "CleanYourTV remote"**, or in YAML:
 
 ```yaml
 type: custom:cleanyourtv-remote
@@ -110,7 +125,7 @@ entity: media_player.lg_tv
 height: 720
 ```
 
-Use **your** TV's media player for `entity`: the one made by CleanYourTV, not the one of LG's own webOS integration.
+For `entity`, use **your** TV's media player: the one made by CleanYourTV, not the one of LG's own webOS integration.
 
 ![The remote card: Remote, Touchpad, Apps and Live TV with the programme on now](docs/screenshots/remote-card.png)
 
@@ -297,7 +312,13 @@ Via SSH kan het ook, met de twee `cytv-addons.js`-opdrachten hierboven.
    - kies op de tv, op de pagina **Home Assistant**, de knop **Home Assistant koppelen**;
    - klik in Home Assistant binnen drie minuten op **Verzenden**.
 
-**Stap 3 — de afstandsbediening:** kies op je dashboard **Kaart toevoegen › CleanYourTV remote**, of:
+**Stap 3 — de afstandsbediening.** Je opent hem op een van deze manieren:
+
+- in de zijbalk: **TV-afstandsbediening**;
+- op de apparaatpagina van de tv: **Bezoeken**;
+- met één klik op een dashboard naar keuze: ga naar Instellingen › Apparaten & diensten › CleanYourTV › **tandwiel** › **Afstandsbediening op een dashboard zetten**.
+
+Je kunt de kaart ook zelf toevoegen via **Kaart toevoegen › CleanYourTV remote**, of:
 
 ```yaml
 type: custom:cleanyourtv-remote

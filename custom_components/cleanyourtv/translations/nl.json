@@ -61,14 +61,37 @@
   "options": {
     "step": {
       "init": {
-        "title": "Opties",
+        "title": "CleanYourTV",
+        "menu_options": {
+          "settings": "Instellingen",
+          "dashboard": "Afstandsbediening op een dashboard zetten"
+        }
+      },
+      "settings": {
+        "title": "Instellingen",
         "data": {
+          "sidebar": "TV-afstandsbediening in de zijbalk",
           "live_sources": "Live TV-zenders als bron"
         },
         "data_description": {
+          "sidebar": "Een pagina met de afstandsbediening in de zijbalk van Home Assistant. Hij staat ook altijd op de apparaatpagina van de tv (Bezoeken).",
           "live_sources": "Zet de zenders van je Live TV-afspeellijst in de bronnenlijst van de mediaspeler. Bij een lange afspeellijst wordt de lijst lang."
         }
+      },
+      "dashboard": {
+        "title": "Afstandsbediening op een dashboard zetten",
+        "description": "Voegt een weergave \"TV-afstandsbediening\" met de mediaspeler en de afstandsbediening van deze tv toe aan het dashboard dat je kiest. Verder verandert er niets aan.",
+        "data": {
+          "dashboard": "Dashboard"
+        }
       }
+    },
+    "abort": {
+      "added_to_dashboard": "Klaar: open hem via {path}.",
+      "no_dashboard": "Er is nog geen dashboard dat je in de UI gemaakt hebt. Maak er eerst een via Instellingen > Dashboards (het automatische Overzicht kan hier niet aangepast worden)."
+    },
+    "error": {
+      "dashboard_failed": "Dat dashboard kan hier niet aangepast worden (in YAML gemaakt?)."
     }
   },
   "entity": {

@@ -61,14 +61,37 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options",
+        "title": "CleanYourTV",
+        "menu_options": {
+          "settings": "Settings",
+          "dashboard": "Put the remote on a dashboard"
+        }
+      },
+      "settings": {
+        "title": "Settings",
         "data": {
+          "sidebar": "TV remote in the sidebar",
           "live_sources": "Live TV channels as sources"
         },
         "data_description": {
+          "sidebar": "A page with the remote in Home Assistant's sidebar. It is always on the TV's device page too (Visit).",
           "live_sources": "Adds the channels of your Live TV playlist to the media player's source list. A long playlist makes the list long."
         }
+      },
+      "dashboard": {
+        "title": "Put the remote on a dashboard",
+        "description": "Adds a view \"TV remote\" with this TV's media player and remote card to the dashboard you choose. Nothing else on it changes.",
+        "data": {
+          "dashboard": "Dashboard"
+        }
       }
+    },
+    "abort": {
+      "added_to_dashboard": "Done: open it at {path}.",
+      "no_dashboard": "There is no dashboard made in the UI yet. Make one in Settings > Dashboards first (the generated Overview cannot be changed from here)."
+    },
+    "error": {
+      "dashboard_failed": "That dashboard cannot be changed from here (made in YAML?)."
     }
   },
   "entity": {
