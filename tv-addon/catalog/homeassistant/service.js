@@ -7,7 +7,7 @@
 //   GET  /api/state?since=<seq>       waits (up to 25 s) until something changed after <seq>, then answers the whole state:
 //                                     {seq, power, app, media: {state, appId}, volume: {level, max, mute, output}, live, name}
 //   POST /api/action {t, ...}         key, text, del, enter, move, click, scroll, launch, live, tvpower, volume, mute
-//   GET  /api/apps | /api/inputs | /api/channels | /api/logo/<number> | /api/icon/<app id>
+//   GET  /api/apps | /api/inputs | /api/channels (with the guide's programme now and next) | /api/logo/<number> | /api/icon/<app id>
 //   POST /api/unpair                  Home Assistant forgets this TV: its token stops working
 // Every call but /api/hello and /api/pair carries "Authorization: Bearer <token>". The LAN listener (port 8801) runs while the add-on is on.
 // The add-on's own page (index.html) asks, through the loader at /api/addons/homeassistant:
@@ -235,6 +235,19 @@ function create(ctx, opts) {
     playlistAt = Date.now();
     return playlist;
   }
+  // the guide's programme now and next for every channel (Live TV answers 60 ids a request), at most 600 channels
+  async function guide(list) {
+    const ids = list
+      .map(ch => String(ch[1] || ''))
+      .filter(Boolean)
+      .slice(0, 600);
+    const out = {};
+    for (let i = 0; i < ids.length; i += 60) {
+      const r = await apiGet('/api/live/epg?ids=' + ids.slice(i, i + 60).map(encodeURIComponent).join(','));
+      Object.keys(r || {}).forEach(k => (out[k] = r[k]));
+    }
+    return out;
+  }
   let matching = 0;
   async function matchLive() {
     const my = ++matching;
@@ -262,6 +275,8 @@ function create(ctx, opts) {
     const g = await apiGet('/api/live/epg?ids=' + encodeURIComponent(String(c[1] || '')));
     const e = g && g[c[1]] && g[c[1]].now;
     if (e) live.programme = { start: e[0], end: e[1], title: String(e[2] || ''), description: String(e[3] || '').slice(0, 500) };
+    const nx = g && g[c[1]] && g[c[1]].next;
+    if (nx) live.next = { start: nx[0], end: nx[1], title: String(nx[2] || '') };
     if (my === matching) set('live', live);
   }
 
@@ -582,13 +597,21 @@ function create(ctx, opts) {
         })
       );
     if (req.method === 'GET' && u === '/api/channels')
-      return channels().then(list =>
-        json(res, {
-          channels: list
-            .map(ch => ({ num: parseInt(ch[0], 10) || 0, name: String(ch[2] || ''), group: String(ch[3] || ''), logo: /^https?:\/\//i.test(String(ch[4] || '')) }))
-            .filter(ch => ch.num > 0 && ch.name),
-        })
-      );
+      return channels()
+        .then(list => guide(list).then(g => ({ list, g })))
+        .then(r =>
+          json(res, {
+            channels: r.list
+              .map(ch => {
+                const c = { num: parseInt(ch[0], 10) || 0, name: String(ch[2] || ''), group: String(ch[3] || ''), logo: /^https?:\/\//i.test(String(ch[4] || '')) };
+                const e = r.g[ch[1]];
+                if (e && e.now) c.now = { start: e.now[0], end: e.now[1], title: String(e.now[2] || '') };
+                if (e && e.next) c.next = { start: e.next[0], end: e.next[1], title: String(e.next[2] || '') };
+                return c;
+              })
+              .filter(ch => ch.num > 0 && ch.name),
+          })
+        );
     if (req.method === 'GET' && u.indexOf('/api/logo/') === 0) {
       const n = parseInt(u.slice('/api/logo/'.length), 10);
       return channels().then(list => {

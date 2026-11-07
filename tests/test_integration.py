@@ -77,6 +77,7 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     a = st(hass, MP).attributes
     assert a["media_title"] == "F1 Kwalificatie" and a["app_name"] == "Live TV" and a["live_channel_number"] == 24
     assert a["media_content_type"] == "channel" and a["media_duration"] > 0
+    assert a["next_programme_title"] == "F1 Nabeschouwing"
 
     await addon.command("power Screen Off")
     await until(lambda: st(hass, MP).state == "idle")

@@ -27,6 +27,17 @@ const EDITS = [
   // the logos and app icons: through Home Assistant (/api/cleanyourtv/<entry>/...), with the entry's secret as the token
   ['src="/api/logo/\'', 'src="\'+CYTV_PIC+\'/api/logo/\''],
   ['src="/icon/\'', 'src="\'+CYTV_PIC+\'/icon/\''],
+  // the Live tab: the programme on now from the guide, with how far it is, under the channel's name (when the TV has a guide)
+  [
+    "'<span class=lvt>'+esc(c.name)+'</span></button>'",
+    "'<span class=lvw><span class=lvt>'+esc(c.name)+'</span>'+(c.now&&c.now.title?'<span class=lvp>'+esc(c.now.title)+'</span><i class=lvb><b style=\"width:'+Math.max(0,Math.min(100,Math.round((Date.now()/1000-c.now.start)*100/Math.max(1,c.now.end-c.now.start))))+'%\"></b></i>':'')+'</span></button>'",
+  ],
+  [
+    '</style>',
+    '.lvgrid .lvw{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}.lvgrid .lvw .lvt{flex:none;max-height:1.3em;white-space:nowrap;text-overflow:ellipsis;max-width:100%}' +
+      '.lvgrid .lvp{font:500 11.5px/1.3 ui-sans-serif,system-ui;color:#9aa0b4;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:2px}' +
+      '.lvgrid .lvb{display:block;width:100%;height:3px;border-radius:2px;background:#2a2d38;margin-top:5px;overflow:hidden}.lvgrid .lvb b{display:block;height:100%;background:#ff8a5b}</style>',
+  ],
 ];
 function build(lang) {
   let html = page.phonePage(i18n, lang, '', '');

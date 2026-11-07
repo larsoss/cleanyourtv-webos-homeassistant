@@ -228,6 +228,10 @@ class CytvMediaPlayer(CytvEntity, MediaPlayerEntity):
                 out["programme_end"] = datetime.fromtimestamp(int(prog["end"]), UTC).isoformat()
                 if prog.get("description"):
                     out["programme_description"] = prog["description"]
+            nxt = live.get("next") or {}
+            if nxt.get("title"):
+                out["next_programme_title"] = nxt["title"]
+                out["next_programme_start"] = datetime.fromtimestamp(int(nxt["start"]), UTC).isoformat()
         v = self._client.volume if self.tv_on else None
         if v and v.get("output"):
             out["sound_output"] = v["output"]
