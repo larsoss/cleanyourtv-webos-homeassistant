@@ -6,12 +6,12 @@
         "description": "Install the Home Assistant add-on on the TV first (manager app > Add-ons > Repositories > add larsoss/cleanyourtv-webos-homeassistant@main/tv-addon, then install Home Assistant). Then, on the TV, open the add-on's page and choose Pair Home Assistant, and click Submit here within three minutes.",
         "data": {
           "host": "Address of the TV",
-          "device_name": "Name on the TV",
+          "device_name": "Name of this Home Assistant",
           "port": "Port"
         },
         "data_description": {
           "host": "The IP address of the TV, best a fixed one in your router.",
-          "device_name": "The TV lists Home Assistant under this name on the add-on's page.",
+          "device_name": "Shown on the TV, in the list of paired Home Assistants.",
           "port": "8801 unless you changed it."
         }
       },
@@ -19,17 +19,20 @@
         "title": "{name} found",
         "description": "{name} ({host}) runs the CleanYourTV Home Assistant add-on. On the TV, open the add-on's page (Home Assistant) and choose Pair Home Assistant, then click Submit here within three minutes.",
         "data": {
-          "device_name": "Name on the TV"
+          "device_name": "Name of this Home Assistant"
         },
         "data_description": {
-          "device_name": "The TV lists Home Assistant under this name on the add-on's page."
+          "device_name": "Shown on the TV, in the list of paired Home Assistants."
         }
       },
       "reauth_confirm": {
         "title": "Pair again",
         "description": "The TV at {host} no longer accepts Home Assistant (it was removed on the TV). On the TV, open the Home Assistant add-on's page and choose Pair Home Assistant, then click Submit here.",
         "data": {
-          "device_name": "Name on the TV"
+          "device_name": "Name of this Home Assistant"
+        },
+        "data_description": {
+          "device_name": "Shown on the TV, in the list of paired Home Assistants."
         }
       },
       "reconfigure": {

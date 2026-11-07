@@ -19,6 +19,7 @@ const subs = {}; // uri -> onMsg
 let pipelineUri = '';
 const luna = (uri, params) => {
   say({ ev: 'luna', uri, params });
+  if (/getSystemInfo$/.test(uri)) return Promise.resolve({ returnValue: true, modelName: process.env.HARNESS_MODEL || '' });
   if (/getActivePipelines$/.test(uri))
     return Promise.resolve(pipelineUri ? [{ type: 'media', appId: 'com.webos.app.home', is_foreground: true, uri: pipelineUri }] : []);
   return Promise.resolve({ returnValue: true });
@@ -83,7 +84,7 @@ const api = http.createServer((req, res) => {
 api.listen(0, '127.0.0.1', async () => {
   const ha = HA.create(
     { settings: store, dataDir: os.tmpdir(), luna, util: { lanIp: () => '127.0.0.1' }, log: () => {} },
-    { port: 0, host: '127.0.0.1', keys, luna, subscribe, api: 'http://127.0.0.1:' + api.address().port, liveWaitMs: 50, waitMs: 3000 }
+    { port: +process.env.HARNESS_PORT || 0, host: '127.0.0.1', keys, luna, subscribe, api: 'http://127.0.0.1:' + api.address().port, liveWaitMs: 50, waitMs: 3000 }
   );
   ha.start();
   const call = (p, body) =>

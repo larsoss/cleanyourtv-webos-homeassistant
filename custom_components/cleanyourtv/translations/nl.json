@@ -6,12 +6,12 @@
         "description": "Installeer eerst de add-on Home Assistant op de tv (manager-app > Add-ons > Repositories > voeg larsoss/cleanyourtv-webos-homeassistant@main/tv-addon toe, installeer daarna Home Assistant). Open dan op de tv de pagina van de add-on, kies Home Assistant koppelen, en klik hier binnen drie minuten op Verzenden.",
         "data": {
           "host": "Adres van de tv",
-          "device_name": "Naam op de tv",
+          "device_name": "Naam van deze Home Assistant",
           "port": "Poort"
         },
         "data_description": {
           "host": "Het IP-adres van de tv, liefst een vast adres in je router.",
-          "device_name": "Onder deze naam staat Home Assistant op de pagina van de add-on.",
+          "device_name": "Zo staat hij op de tv, in de lijst met gekoppelde Home Assistants.",
           "port": "8801, tenzij je het veranderd hebt."
         }
       },
@@ -19,17 +19,20 @@
         "title": "{name} gevonden",
         "description": "{name} ({host}) heeft de CleanYourTV-add-on Home Assistant. Open op de tv de pagina van de add-on (Home Assistant), kies Home Assistant koppelen, en klik hier binnen drie minuten op Verzenden.",
         "data": {
-          "device_name": "Naam op de tv"
+          "device_name": "Naam van deze Home Assistant"
         },
         "data_description": {
-          "device_name": "Onder deze naam staat Home Assistant op de pagina van de add-on."
+          "device_name": "Zo staat hij op de tv, in de lijst met gekoppelde Home Assistants."
         }
       },
       "reauth_confirm": {
         "title": "Opnieuw koppelen",
         "description": "De tv op {host} accepteert Home Assistant niet meer (verwijderd op de tv). Open op de tv de pagina van de add-on Home Assistant, kies Home Assistant koppelen, en klik hier op Verzenden.",
         "data": {
-          "device_name": "Naam op de tv"
+          "device_name": "Naam van deze Home Assistant"
+        },
+        "data_description": {
+          "device_name": "Zo staat hij op de tv, in de lijst met gekoppelde Home Assistants."
         }
       },
       "reconfigure": {
