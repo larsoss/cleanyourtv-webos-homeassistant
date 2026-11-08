@@ -23,7 +23,9 @@ Control a rooted LG webOS TV that runs [CleanYourTV](https://github.com/lasharor
 ## Before you start
 
 - **The TV:** an LG webOS TV, rooted, with CleanYourTV installed.
-- **Home Assistant:** 2025.1 or newer, with [HACS](https://hacs.xyz), on the same network as the TV.
+- **Home Assistant:** on the same network as the TV, and either:
+  - 2026.11 or newer, which has the built-in **Marketplace**;
+  - 2025.1 or newer with [HACS](https://hacs.xyz).
 - **Recommended:**
   - give the TV a fixed IP address in your router;
   - switch on **TV On With Mobile** in the TV's settings, so Home Assistant can turn it on.
@@ -49,14 +51,25 @@ node /media/developer/cleanyourtv/cytv-addons.js install homeassistant
 
 ### 2. In Home Assistant: the integration
 
-1. **HACS › ⋮ › Custom repositories**: add `https://github.com/larsoss/cleanyourtv-webos-homeassistant` as an **Integration**.
-2. **Download CleanYourTV** and **restart Home Assistant**.
+**Home Assistant 2026.11 and newer (Marketplace):**
+
+1. Go to **Settings › Marketplace › Add from link** and enter `larsoss/cleanyourtv-webos-homeassistant`.
+
+   The first time, the Marketplace asks you to connect GitHub. That connection is read-only.
+2. Open **CleanYourTV** and choose **Install**.
+
+   No restart is needed: setup starts right away, so continue with step 3.
+
+**Older Home Assistant (HACS):**
+
+1. Go to **HACS › ⋮ › Custom repositories** and add `https://github.com/larsoss/cleanyourtv-webos-homeassistant` as an **Integration**.
+2. **Download** it and **restart Home Assistant**.
 
 ### 3. Pair, without a code
 
 1. Home Assistant finds the TV by itself: **Settings › Devices & services** shows **CleanYourTV**. Click **Add**.
 
-   If it does not show up, choose **Add integration › CleanYourTV** and enter the TV's IP address.
+   If it does not show up, choose **Add integration › CleanYourTV** and enter the TV's IP address. With the Marketplace, the setup it starts after installing asks for the address the same way.
 2. On the TV, open the add-on's page **Home Assistant** (in the book next to Home) and choose **Pair Home Assistant**.
 3. In Home Assistant, click **Submit** within three minutes.
 
@@ -126,7 +139,7 @@ mode: single
 |---|---|
 | "The TV did not answer" | The TV is on? The **Home Assistant** add-on is installed? Port `8801`? |
 | "The TV is not waiting" | First choose **Pair Home Assistant** on the TV, then **Submit**. |
-| "Custom element doesn't exist: cleanyourtv-remote" | Restart Home Assistant. In the Companion app, close the app fully and open it again. |
+| "Custom element doesn't exist: cleanyourtv-remote" | Reload the page. In the Companion app, close the app fully and open it again. After an **update**, restart Home Assistant first: the Marketplace shows a repair for this. |
 | Home Assistant asks to pair again | The TV removed it. Pair again (step 3). |
 | Turning on does nothing | Switch on **TV On With Mobile** on the TV. Turn the TV on once with its own remote while Home Assistant is connected. |
 | The TV asks something at the first key press | Allow it: the add-on needs the TV's pointer for the keys. |
@@ -135,7 +148,11 @@ Still stuck? [Open an issue](https://github.com/larsoss/cleanyourtv-webos-homeas
 
 ## Good to know
 
-- **Beta versions:** in HACS, switch on **Show beta versions**. On the TV, use `…@Beta/tv-addon` as the repository address.
+- **Beta versions:**
+  - **Marketplace:** go to **Settings › Devices & services › Marketplace** and open **CleanYourTV**. Enable the **Pre-release** entity (it is disabled by default) and switch it on.
+  - **HACS:** switch on **Show beta versions**.
+  - **On the TV:** use `…@Beta/tv-addon` as the repository address.
+- **Updates** appear under **Settings › Updates**. After an update, restart Home Assistant.
 - **Privacy:** everything stays on your network.
   - Only a Home Assistant you paired on the TV can use the add-on.
   - Your IPTV stream address (which can hold your provider's login) never leaves the TV.
