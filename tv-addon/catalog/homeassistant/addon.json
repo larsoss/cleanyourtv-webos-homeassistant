@@ -1,6 +1,6 @@
 {
   "id": "homeassistant",
-  "name": "Home Assistant (beta)",
+  "name": "Home Assistant",
   "version": "0.2.2",
   "minService": "1.6.18",
   "kind": "service",
