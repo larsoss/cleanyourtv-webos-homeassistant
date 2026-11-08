@@ -50,6 +50,9 @@ function build(lang) {
   const at = html.indexOf('<script');
   if (at < 0) throw new Error(lang + ': no script in the page');
   html = html.slice(0, at) + '<script>' + shim + '</script>' + html.slice(at);
+  // the Home Screen app tags of the phone page (manifest, icon, full screen on iOS) mean nothing in a frame, and the manifest would be asked
+  // of Home Assistant: out
+  html = html.replace(/<link rel=(?:manifest|apple-touch-icon) [^>]*>/g, '').replace(/<meta name=(?:apple-mobile-web-app-[a-z-]+|mobile-web-app-capable) [^>]*>/g, '');
   // the page fills the frame: the card decides the size
   html = html.replace('<meta charset=utf-8>', '<meta charset=utf-8><base target=_self>');
   return html;

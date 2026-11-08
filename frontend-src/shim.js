@@ -14,7 +14,19 @@
     wake: function () { B.wake(); return true; },
     deviceName: function () { return 'Home Assistant'; },
     up: function () { return B.connected(); },
-    buzz: function () { try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} }
+    /* a key press: in the Home Assistant Companion app (iPhone and Android) the app's own haptics, which the frontend passes on from a
+       "haptic" event on its window (iOS has no navigator.vibrate, and a switch tick needs the finger on the switch); in a browser,
+       navigator.vibrate where there is one */
+    buzz: function () {
+      try {
+        var W = window.frameElement.ownerDocument.defaultView;
+        if (W.externalApp || (W.webkit && W.webkit.messageHandlers && W.webkit.messageHandlers.externalBus)) {
+          W.dispatchEvent(new W.CustomEvent('haptic', { detail: 'light' }));
+          return;
+        }
+      } catch (e) {}
+      try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
+    }
   };
   var socks = [];
   function FakeWS() {
