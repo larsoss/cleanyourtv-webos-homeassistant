@@ -5,10 +5,14 @@ name: Release
 on:
   push:
     branches: [main, Beta]
-    paths: ["custom_components/cleanyourtv/manifest.json"]
+    paths: ["custom_components/cleanyourtv/manifest.json", ".github/workflows/release.yml"]
   workflow_dispatch:
 permissions:
   contents: write
+# a push to main and Beta at once must not make the release twice
+concurrency:
+  group: release
+  cancel-in-progress: false
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -20,6 +24,9 @@ jobs:
         run: |
           v=$(python3 -c "import json;print(json.load(open('custom_components/cleanyourtv/manifest.json'))['version'])")
           tag="v$v"
+          # releases of this tag made twice (two pushes at once, before the concurrency group): the oldest one stays
+          dupes=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq "[.[] | select(.tag_name==\"$tag\")] | sort_by(.id) | .[1:] | .[].id")
+          for id in $dupes; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id" && echo "removed duplicate release $id"; done
           if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists"; exit 0; fi
           pre=""
           case "$v" in *b*|*a*|*rc*) pre="--prerelease" ;; esac
