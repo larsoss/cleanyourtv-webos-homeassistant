@@ -17,17 +17,18 @@ class CleanYourTVPanel extends HTMLElement {
   _render() {
     const root = this.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>
-      :host{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;background:var(--primary-background-color)}
+      :host{display:block;background:var(--primary-background-color)}
       .bar{flex:none;display:flex;align-items:center;height:56px;padding:0 8px;color:var(--app-header-text-color,var(--primary-text-color));background:var(--app-header-background-color,var(--primary-background-color))}
       .bar h1{font:400 20px/1 var(--ha-font-family-body,Roboto,sans-serif);margin:0 0 0 8px;flex:1}
       select{font:inherit;background:transparent;color:inherit;border:1px solid var(--divider-color);border-radius:8px;padding:6px}
-      .wrap{flex:1;min-height:0;box-sizing:border-box;width:100%;max-width:440px;margin:0 auto;padding:0 0 4px}
+      .wrap{box-sizing:border-box;width:100%;max-width:440px;margin:0 auto}
       .msg{padding:24px;color:var(--primary-text-color)}
     </style><div class="bar"><ha-menu-button></ha-menu-button><h1 id="t">TV</h1><select id="s" hidden></select></div><div class="wrap" id="w"></div>`;
     root.getElementById('s').addEventListener('change', e => this._show(e.target.value));
     // the remote is as high as it needs, at most the room under the bar: the page never scrolls
     const w = root.getElementById('w');
-    const fit = () => this._card && this._card.setHeight(null, Math.max(360, w.clientHeight - 4));
+    // the room: from the top of the remote to the bottom of the window (whatever Home Assistant puts around the page, the app's safe areas)
+    const fit = () => this._card && this._card.setHeight(null, Math.max(360, Math.floor(window.innerHeight - w.getBoundingClientRect().top) - 4));
     if (window.ResizeObserver) new ResizeObserver(fit).observe(w);
     window.addEventListener('resize', fit);
     this._fit = fit;

@@ -69,6 +69,27 @@
       }
     }
 
+    _watch() {
+      if (this._ro) this._ro.disconnect();
+      this._ro = null;
+      let tries = 0;
+      const look = () => {
+        this._fit();
+        try {
+          const w = this._frame.contentWindow,
+            d = this._frame.contentDocument;
+          const parts = ['#remote .head', '#kb > .cv', '#remote .tabbar'].map(q => d.querySelector(q));
+          if (w.ResizeObserver && parts.every(Boolean)) {
+            this._ro = new w.ResizeObserver(() => this._fit());
+            parts.forEach(el => this._ro.observe(el));
+            return;
+          }
+        } catch (e) {}
+        if (++tries < 40) setTimeout(look, 250);
+      };
+      look();
+    }
+
     _fit() {
       if (!this._frame) return;
       const fixed = this._fixed();
@@ -195,9 +216,8 @@
       this._frame.addEventListener('load', () => {
         this._theme();
         this._placeClose();
-        // measured once the page has laid out (and again when its fonts are in)
-        requestAnimationFrame(() => this._fit());
-        setTimeout(() => this._fit(), 400);
+        // measured whenever the remote's parts change size: when the page shows the remote (after it connects), when its fonts are in
+        this._watch();
       });
       window.addEventListener('resize', () => this._fit());
     }
