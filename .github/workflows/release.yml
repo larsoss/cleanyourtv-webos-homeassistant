@@ -17,7 +17,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Release the version of manifest.json if it has none
         env:
           GH_TOKEN: ${{ github.token }}
