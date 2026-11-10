@@ -8,6 +8,8 @@
     localStorage.setItem('cytv-remote', B.secret); /* the page is "paired": the pairing is Home Assistant's own */
     if (B.model) localStorage.setItem('cytv-tvname', B.model);
   } catch (e) {}
+  /* light or dark, as Home Assistant's theme (the card sets it again when the theme changes) */
+  if (B.dark && !B.dark()) document.documentElement.classList.add('light');
   window.CYTV_PIC = B.pic; /* pictures: /api/cleanyourtv/<entry>/... (the build puts it in front of the page's own paths) */
   /* the wrapper of an app, as far as this page needs one: Home Assistant wakes the TV (Wake-on-LAN or the screen back on) */
   window.CYTV_APP = {

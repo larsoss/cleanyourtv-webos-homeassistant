@@ -3,6 +3,7 @@
  *   type: custom:cleanyourtv-remote
  *   entity: media_player.your_tv     (the CleanYourTV media player)
  *   height: 720                      (optional, in pixels)
+ *   theme: auto                      (optional: auto = as Home Assistant's theme, light or dark)
  *   close: auto                      (optional: a close button; auto = only when the card is in a popup, true = always, false = never)
  *
  * The page itself is in pages/<language>.html (made by tools/build-card.js). It runs in a frame of the same origin; this card answers
@@ -30,6 +31,7 @@
       this._built = false;
       if (this._frame) this._build();
       this._placeClose();
+      this._theme();
     }
 
     static getStubConfig(hass) {
@@ -42,11 +44,31 @@
       return Math.ceil((this._config ? this._config.height : 720) / 50);
     }
 
+    // dark or light: the card's own setting, or Home Assistant's theme (its dark mode)
+    _dark() {
+      const t = this._config && this._config.theme;
+      if (t === 'dark') return true;
+      if (t === 'light') return false;
+      const th = this._hass && this._hass.themes;
+      if (th && typeof th.darkMode === 'boolean') return th.darkMode;
+      return !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    _theme() {
+      const dark = this._dark();
+      if (this._card) this._card.classList.toggle('light', !dark);
+      try {
+        const d = this._frame && this._frame.contentDocument;
+        if (d && d.documentElement) d.documentElement.classList.toggle('light', !dark);
+      } catch (e) {}
+    }
+
     set hass(hass) {
       const first = !this._hass;
       this._hass = hass;
       if (!this.shadowRoot) this._render();
       this._placeClose();
+      this._theme();
       if (first || !this._built) this._build();
       const st = hass.states[this._config.entity];
       const key = st ? [st.attributes.connected, st.attributes.power_state, st.state].join('|') : 'none';
@@ -103,18 +125,23 @@
     _render() {
       const root = this.attachShadow({ mode: 'open' });
       root.innerHTML = `<style>
-        ha-card{overflow:hidden;background:#121318}
-        iframe{display:block;width:100%;border:0;background:#121318}
+        ha-card{overflow:hidden;background:#101116}
+        iframe{display:block;width:100%;border:0;background:#101116}
+        ha-card.light,ha-card.light iframe{background:#f2f3f7}
         .msg{padding:16px;color:var(--primary-text-color)}
         .bar{display:none;justify-content:flex-end;padding:6px 6px 0}
         .x{width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:#e8e9ee;font:22px/40px system-ui,sans-serif;
           cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
         .x:hover,.x:focus-visible{background:rgba(255,255,255,.18);outline:none}
+        .light .x{background:rgba(0,0,0,.06);color:#16181f}
+        .light .x:hover,.light .x:focus-visible{background:rgba(0,0,0,.12)}
       </style><ha-card><div class="bar" id="bar"><button class="x" id="x" type="button" aria-label="Close" title="Close">&#x2715;</button></div>
       <div class="msg" id="msg"></div><iframe id="f" title="CleanYourTV remote" allow="vibrate"></iframe></ha-card>`;
       this._frame = root.getElementById('f');
       this._msg = root.getElementById('msg');
       this._bar = root.getElementById('bar');
+      this._card = root.querySelector('ha-card');
+      this._frame.addEventListener('load', () => this._theme());
       root.getElementById('x').addEventListener('click', () => this._close());
     }
 
@@ -149,6 +176,7 @@
           model: info.model,
           mac: info.mac,
           keys: KEYS,
+          dark: () => card._dark(),
           connected: () => attr().connected === true,
           power: () => attr().power_state || (attr().connected ? 'Active' : ''),
           action: m => card._hass.callWS({ type: 'cleanyourtv/action', entry_id: info.entry_id, action: m }),

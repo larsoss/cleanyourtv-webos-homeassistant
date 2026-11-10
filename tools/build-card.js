@@ -39,6 +39,41 @@ const EDITS = [
       '.lvgrid .lvb{display:block;width:100%;height:3px;border-radius:2px;background:#2a2d38;margin-top:5px;overflow:hidden}.lvgrid .lvb b{display:block;height:100%;background:#ff8a5b}</style>',
   ],
 ];
+// light mode: every colour of the page's stylesheet becomes a variable with the page's own (dark) colour, and html.light (set by the card when
+// Home Assistant's theme is light) gives it the light one. A colour not in this list stays as it is in both modes (the accent, the colour keys).
+const LIGHT = {
+  // surfaces, from the page's background up
+  '#101116': '#f2f3f7', '#111319': '#e9ebf0', '#13141a': '#ffffff', '#14161c': '#f7f8fa', '#14161d': '#f7f8fa', '#151720': '#eceef3',
+  '#1a1c23': '#ffffff', '#1b1d25': '#ffffff', '#1c1f2a': '#ffffff', '#1d2028': '#f7f8fa', '#20222b': '#eceef3', '#232631': '#eceef3',
+  '#23262f': '#e3e5ec', '#2a2d3a': '#e4e6ec', '#2a2d38': '#e3e5ec', '#2e3140': '#d9dce5', '#3a3e50': '#c9cdd8', '#3a3e4d': '#c9cdd8',
+  // text
+  '#f4f5f7': '#16181f', '#fff': '#000', '#dde0ea': '#2a2d38', '#c9ccd8': '#4a4f60', '#a3a8b8': '#626879', '#9aa0b4': '#6a7083',
+  '#646b82': '#9aa0b2',
+  // the accent when pressed, and the states
+  '#ffb08f': '#e8692f', '#7be0a4': '#1f8a4c', '#f0d58a': '#a77b00', '#f0a0a0': '#c43c3c', '#ff9f9f': '#c43c3c',
+  '#5a3434': '#f0c4c4', '#1d1517': '#fff1f1', '#6b2b2b': '#e9b0b0', '#2a1717': '#fff0f0', '#1d1714': '#fff4ee', '#5a3b2c': '#f5d2c0',
+  '#5a3a2b': '#f5cdb8', '#241a17': '#fff1ea', '#6b4330': '#f0c0a5', '#2a1d18': '#ffeee5', '#12231b': '#e9f8ef', '#bfe9cf': '#1d5c37',
+  '#2a2412': '#fff8e1', '#ffe9a8': '#6b5200',
+  // see-through layers: white on dark becomes black on light
+  'rgba(8,9,12,.66)': 'rgba(20,22,30,.35)', 'rgba(255,255,255,.05)': 'rgba(0,0,0,.05)', 'rgba(255,255,255,.06)': 'rgba(0,0,0,.07)',
+  'rgba(255,255,255,.03)': 'rgba(0,0,0,.02)', 'rgba(255,255,255,.10)': 'rgba(0,0,0,.07)', 'rgba(163,168,184,.6)': 'rgba(98,104,121,.6)',
+  'rgba(0,0,0,.45)': 'rgba(0,0,0,.15)',
+};
+function themed(html) {
+  const a = html.indexOf('<style>'),
+    b = html.indexOf('</style>', a);
+  if (a < 0 || b < 0) throw new Error('no stylesheet in the page');
+  const used = new Map();
+  const css = html.slice(a + 7, b).replace(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b(?![0-9a-fA-F])|rgba\([^)]*\)/g, c => {
+    const k = c.toLowerCase();
+    if (!(k in LIGHT)) return c;
+    if (!used.has(k)) used.set(k, '--cy' + used.size);
+    return 'var(' + used.get(k) + ')';
+  });
+  const dark = [...used].map(([c, v]) => v + ':' + c).join(';'),
+    light = [...used].map(([c, v]) => v + ':' + LIGHT[c]).join(';');
+  return html.slice(0, a + 7) + ':root{' + dark + '}html.light{' + light + ';color-scheme:light}' + css + html.slice(b);
+}
 function build(lang) {
   let html = page.phonePage(i18n, lang, '', '');
   for (const [a, b] of EDITS) {
@@ -46,6 +81,7 @@ function build(lang) {
     if (n < 1) throw new Error(lang + ': the page no longer has ' + a + ' (the Phone remote changed: update tools/build-card.js)');
     html = html.split(a).join(b);
   }
+  html = themed(html);
   // the shim runs first: it is the first script of the page
   const at = html.indexOf('<script');
   if (at < 0) throw new Error(lang + ': no script in the page');
