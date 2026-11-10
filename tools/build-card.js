@@ -83,10 +83,12 @@ function build(lang) {
   }
   html = themed(html);
   // in Home Assistant: the page is see-through (the remote stands on the card or the page around it, no box of its own), the remote sits
-  // under the top bar instead of in the middle of the frame, and the close button (the shim's) keeps its distance from the power button
+  // under the top bar instead of in the middle of the frame, the close button (the shim's) keeps its distance from the power button
   html = html.replace(
     '</style>',
-    'body,.tabbar{background:transparent}#kb>.cv{margin:10px 0 auto}#tp>.cv{margin:4px 0 auto}#cyx{flex:none}</style>'
+    'body,.tabbar{background:transparent}#kb>.cv{margin:4px 0 auto}#tp>.cv{margin:4px 0 auto}#cyx{flex:none}' +
+      // the frame is not the phone's screen: no room for a status bar or a home indicator (iOS gives the frame the screen's safe areas)
+      '.head{padding-top:12px}.tabbar{padding-bottom:4px}</style>'
   );
   // the shim runs first: it is the first script of the page
   const at = html.indexOf('<script');

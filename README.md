@@ -92,7 +92,7 @@ You can also add it as a card yourself:
 ```yaml
 type: custom:cleanyourtv-remote
 entity: media_player.lg_tv   # the CleanYourTV media player, not the LG webOS one
-height: 720
+height: 680
 theme: auto   # light or dark: auto follows Home Assistant's theme
 close: auto   # a ✕ next to the power button: auto = only in a popup (browser_mod, Bubble Card, …), true = always, false = never
 ```

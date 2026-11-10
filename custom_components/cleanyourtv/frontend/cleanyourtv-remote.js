@@ -2,7 +2,7 @@
  *
  *   type: custom:cleanyourtv-remote
  *   entity: media_player.your_tv     (the CleanYourTV media player)
- *   height: 720                      (optional, in pixels)
+ *   height: 680                      (optional, in pixels)
  *   theme: auto                      (optional: auto = as Home Assistant's theme, light or dark)
  *   close: auto                      (optional: a close button beside the power button; auto = only in a popup, true = always, false = never)
  *
@@ -26,7 +26,7 @@
   class CleanYourTVRemote extends HTMLElement {
     setConfig(config) {
       if (!config || !config.entity) throw new Error('entity: the CleanYourTV media player');
-      this._config = Object.assign({ height: 720 }, config);
+      this._config = Object.assign({ height: 680 }, config);
       this._listeners = [];
       this._built = false;
       if (this._card) this._card.classList.toggle('plain', !!this._config.plain);
@@ -41,8 +41,15 @@
       return { entity: id || 'media_player.lg_tv' };
     }
 
+    // the remote page sets the height to the room it has (no reload of the page inside)
+    setHeight(px) {
+      if (!this._config || !px) return;
+      this._config.height = px;
+      if (this._frame) this._frame.style.height = px + 'px';
+    }
+
     getCardSize() {
-      return Math.ceil((this._config ? this._config.height : 720) / 50);
+      return Math.ceil((this._config ? this._config.height : 680) / 50);
     }
 
     // dark or light: the card's own setting, or Home Assistant's theme (its dark mode)
