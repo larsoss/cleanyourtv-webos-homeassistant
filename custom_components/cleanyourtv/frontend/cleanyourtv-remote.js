@@ -42,10 +42,12 @@
     }
 
     // a fixed height in pixels, or null for auto (no reload of the page inside); the remote page passes the room it has as the most
-    setHeight(px, most) {
+    // fill: the remote takes all of that room, its rows spread over it (the remote page on a phone: no empty strip at the bottom)
+    setHeight(px, most, fill) {
       if (!this._config) return;
       this._config.height = px || 'auto';
       this._most = most || 0;
+      this._fill = !!fill;
       this._fit();
     }
 
@@ -62,8 +64,10 @@
           cv = d.querySelector('#kb > .cv'),
           tabs = d.querySelector('#remote .tabbar');
         if (!head || !cv || !tabs || !head.offsetHeight) return 0;
+        // while the rows are spread (fill) the buttons' block is as high as the room: the height measured before counts
+        if (d.documentElement.classList.contains('fill')) return this._nat || 0;
         const m = parseFloat(getComputedStyle(cv).marginTop) || 0;
-        return Math.ceil(head.offsetHeight + cv.offsetHeight + m + 8 + tabs.offsetHeight);
+        return (this._nat = Math.ceil(head.offsetHeight + cv.offsetHeight + m + 8 + tabs.offsetHeight));
       } catch (e) {
         return 0;
       }
@@ -98,9 +102,13 @@
         return;
       }
       // auto: as high as the remote needs, at most the window (a popup, a phone) and the room the remote page gives it
-      let h = this._natural() || 680;
+      const nat = this._natural() || 680;
+      let h = this._fill && this._most ? Math.min(this._most, nat + 220) : nat;
       h = Math.min(h, Math.max(420, (window.innerHeight || h) - 24));
       if (this._most) h = Math.min(h, this._most);
+      try {
+        this._frame.contentDocument.documentElement.classList.toggle('fill', this._fill && h > nat);
+      } catch (e) {}
       this._frame.style.height = Math.max(360, h) + 'px';
     }
 

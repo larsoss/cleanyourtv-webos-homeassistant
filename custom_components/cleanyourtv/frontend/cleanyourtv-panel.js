@@ -28,7 +28,7 @@ class CleanYourTVPanel extends HTMLElement {
     // the remote is as high as it needs, at most the room under the bar: the page never scrolls
     const w = root.getElementById('w');
     // the room: from the top of the remote to the bottom of the window (whatever Home Assistant puts around the page, the app's safe areas)
-    const fit = () => this._card && this._card.setHeight(null, Math.max(360, Math.floor(window.innerHeight - w.getBoundingClientRect().top) - 4));
+    const fit = () => this._card && this._card.setHeight(null, Math.max(360, Math.floor(window.innerHeight - w.getBoundingClientRect().top) - 4), true);
     if (window.ResizeObserver) new ResizeObserver(fit).observe(w);
     window.addEventListener('resize', fit);
     this._fit = fit;

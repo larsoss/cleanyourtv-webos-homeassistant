@@ -88,7 +88,9 @@ function build(lang) {
     '</style>',
     'body,.tabbar{background:transparent}#kb>.cv{margin:4px 0 auto}#tp>.cv{margin:4px 0 auto}#cyx{flex:none}' +
       // the frame is not the phone's screen: no room for a status bar or a home indicator (iOS gives the frame the screen's safe areas)
-      '.head{padding-top:12px}.tabbar{padding-bottom:4px}</style>'
+      '.head{padding-top:12px}.tabbar{padding-bottom:4px}' +
+      // a remote with more room than it needs (the remote page on a phone): its rows spread over the room, the tab bar at the bottom
+      'html.fill #kb>.cv{flex:1 0 auto;margin:0;display:flex;flex-direction:column;justify-content:space-evenly}html.fill #kb>.cv>*{margin-top:0}</style>'
   );
   // the shim runs first: it is the first script of the page
   const at = html.indexOf('<script');
