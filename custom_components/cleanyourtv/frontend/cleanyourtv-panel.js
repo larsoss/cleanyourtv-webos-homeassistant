@@ -25,9 +25,9 @@ class CleanYourTVPanel extends HTMLElement {
       .msg{padding:24px;color:var(--primary-text-color)}
     </style><div class="bar"><ha-menu-button></ha-menu-button><h1 id="t">TV</h1><select id="s" hidden></select></div><div class="wrap" id="w"></div>`;
     root.getElementById('s').addEventListener('change', e => this._show(e.target.value));
-    // the remote fills the room under the bar (up to the height of a large phone): the page never scrolls
+    // the remote is as high as it needs, at most the room under the bar: the page never scrolls
     const w = root.getElementById('w');
-    const fit = () => this._card && this._card.setHeight(Math.max(420, Math.min(700, w.clientHeight - 4)));
+    const fit = () => this._card && this._card.setHeight(null, Math.max(360, w.clientHeight - 4));
     if (window.ResizeObserver) new ResizeObserver(fit).observe(w);
     window.addEventListener('resize', fit);
     this._fit = fit;
@@ -74,7 +74,7 @@ class CleanYourTVPanel extends HTMLElement {
     const w = this.shadowRoot.getElementById('w');
     w.innerHTML = '';
     const card = document.createElement('cleanyourtv-remote');
-    card.setConfig({ entity: tv.entity_id, plain: true, height: 640 });
+    card.setConfig({ entity: tv.entity_id, plain: true });
     card.closeAction = () => this._leave(); // the ✕ in the remote's top bar: back
     w.appendChild(card);
     card.hass = this._hass;

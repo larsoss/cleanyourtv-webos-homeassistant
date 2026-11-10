@@ -2,7 +2,7 @@
  *
  *   type: custom:cleanyourtv-remote
  *   entity: media_player.your_tv     (the CleanYourTV media player)
- *   height: 680                      (optional, in pixels)
+ *   height: auto                     (optional: auto = as high as the remote needs, at most the screen; or a number of pixels)
  *   theme: auto                      (optional: auto = as Home Assistant's theme, light or dark)
  *   close: auto                      (optional: a close button beside the power button; auto = only in a popup, true = always, false = never)
  *
@@ -26,7 +26,7 @@
   class CleanYourTVRemote extends HTMLElement {
     setConfig(config) {
       if (!config || !config.entity) throw new Error('entity: the CleanYourTV media player');
-      this._config = Object.assign({ height: 680 }, config);
+      this._config = Object.assign({ height: 'auto' }, config);
       this._listeners = [];
       this._built = false;
       if (this._card) this._card.classList.toggle('plain', !!this._config.plain);
@@ -41,15 +41,50 @@
       return { entity: id || 'media_player.lg_tv' };
     }
 
-    // the remote page sets the height to the room it has (no reload of the page inside)
-    setHeight(px) {
-      if (!this._config || !px) return;
-      this._config.height = px;
-      if (this._frame) this._frame.style.height = px + 'px';
+    // a fixed height in pixels, or null for auto (no reload of the page inside); the remote page passes the room it has as the most
+    setHeight(px, most) {
+      if (!this._config) return;
+      this._config.height = px || 'auto';
+      this._most = most || 0;
+      this._fit();
+    }
+
+    _fixed() {
+      const h = Number(this._config && this._config.height);
+      return h > 0 ? h : 0;
+    }
+
+    // how high the remote is when nothing in it has to scroll: its top bar, the buttons of the Remote tab and the tab bar
+    _natural() {
+      try {
+        const d = this._frame.contentDocument;
+        const head = d.querySelector('#remote .head'),
+          cv = d.querySelector('#kb > .cv'),
+          tabs = d.querySelector('#remote .tabbar');
+        if (!head || !cv || !tabs || !head.offsetHeight) return 0;
+        const m = parseFloat(getComputedStyle(cv).marginTop) || 0;
+        return Math.ceil(head.offsetHeight + cv.offsetHeight + m + 8 + tabs.offsetHeight);
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    _fit() {
+      if (!this._frame) return;
+      const fixed = this._fixed();
+      if (fixed) {
+        this._frame.style.height = fixed + 'px';
+        return;
+      }
+      // auto: as high as the remote needs, at most the window (a popup, a phone) and the room the remote page gives it
+      let h = this._natural() || 680;
+      h = Math.min(h, Math.max(420, (window.innerHeight || h) - 24));
+      if (this._most) h = Math.min(h, this._most);
+      this._frame.style.height = Math.max(360, h) + 'px';
     }
 
     getCardSize() {
-      return Math.ceil((this._config ? this._config.height : 680) / 50);
+      return Math.ceil((this._fixed() || 680) / 50);
     }
 
     // dark or light: the card's own setting, or Home Assistant's theme (its dark mode)
@@ -160,7 +195,11 @@
       this._frame.addEventListener('load', () => {
         this._theme();
         this._placeClose();
+        // measured once the page has laid out (and again when its fonts are in)
+        requestAnimationFrame(() => this._fit());
+        setTimeout(() => this._fit(), 400);
       });
+      window.addEventListener('resize', () => this._fit());
     }
 
     _say(text) {
@@ -174,7 +213,7 @@
       try {
         const hass = this._hass,
           entity = this._config.entity;
-        this._frame.style.height = this._config.height + 'px';
+        this._fit();
         let info;
         try {
           info = await hass.callWS({ type: 'cleanyourtv/card', entity_id: entity });
