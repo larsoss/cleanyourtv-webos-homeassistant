@@ -3,6 +3,7 @@
  *   type: custom:cleanyourtv-remote
  *   entity: media_player.your_tv     (the CleanYourTV media player)
  *   height: 720                      (optional, in pixels)
+ *   close: auto                      (optional: a close button; auto = only when the card is in a popup, true = always, false = never)
  *
  * The page itself is in pages/<language>.html (made by tools/build-card.js). It runs in a frame of the same origin; this card answers
  * its WebSocket and its list requests by asking Home Assistant (the cleanyourtv/* WebSocket commands of the integration).
@@ -16,6 +17,11 @@
   let langsP = null;
   const langs = () => (langsP = langsP || fetch(BASE + 'langs.json?v=' + VERSION).then(r => r.json()).catch(() => ['en']));
 
+  // the popups the card can be in: Home Assistant's own dialogs, browser_mod, Bubble Card (and other cards that open on a #hash)
+  const DIALOGS = ['HA-DIALOG', 'HA-MD-DIALOG', 'HA-ADAPTIVE-DIALOG', 'BROWSER-MOD-POPUP', 'HA-MORE-INFO-DIALOG', 'HUI-DIALOG-EDIT-CARD'];
+  const up = el => el.parentNode || el.host || null; // through shadow roots
+  const isBubble = el => el.classList && (el.classList.contains('bubble-pop-up') || el.classList.contains('pop-up'));
+
   class CleanYourTVRemote extends HTMLElement {
     setConfig(config) {
       if (!config || !config.entity) throw new Error('entity: the CleanYourTV media player');
@@ -23,6 +29,7 @@
       this._listeners = [];
       this._built = false;
       if (this._frame) this._build();
+      this._placeClose();
     }
 
     static getStubConfig(hass) {
@@ -39,6 +46,7 @@
       const first = !this._hass;
       this._hass = hass;
       if (!this.shadowRoot) this._render();
+      this._placeClose();
       if (first || !this._built) this._build();
       const st = hass.states[this._config.entity];
       const key = st ? [st.attributes.connected, st.attributes.power_state, st.state].join('|') : 'none';
@@ -52,15 +60,62 @@
       }
     }
 
+    connectedCallback() {
+      if (this.shadowRoot) this._placeClose();
+    }
+
+    _popup() {
+      for (let el = up(this); el; el = up(el)) {
+        if (DIALOGS.includes(el.tagName)) return { kind: 'dialog', el };
+        if (isBubble(el)) return { kind: 'hash', el };
+      }
+      return null;
+    }
+
+    _placeClose() {
+      const want = this._config && this._config.close;
+      const show = want === true || want === 'true' || ((want === undefined || want === 'auto') && !!this._popup());
+      if (this._bar) this._bar.style.display = show ? 'flex' : 'none';
+    }
+
+    _close() {
+      const p = this._popup();
+      const fire = (el, type, detail) => el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+      if (p && p.kind === 'dialog') {
+        const d = p.el;
+        if (typeof d.closeDialog === 'function') return d.closeDialog(); // browser_mod, more-info, HA's dialog managers
+        if (typeof d.close === 'function') return d.close(); // ha-dialog, ha-md-dialog
+      }
+      if (window.browser_mod && typeof window.browser_mod.service === 'function') {
+        try {
+          window.browser_mod.service('close_popup', {});
+        } catch (e) {}
+      }
+      if (location.hash) {
+        // Bubble Card and the like: the popup is open while the address has its #hash
+        history.replaceState(history.state, '', location.href.split('#')[0]);
+        fire(window, 'location-changed', { replace: true });
+      }
+      fire(this, 'dialog-closed', {});
+      fire(this, 'hass-more-info', { entityId: '' });
+    }
+
     _render() {
       const root = this.attachShadow({ mode: 'open' });
       root.innerHTML = `<style>
         ha-card{overflow:hidden;background:#121318}
         iframe{display:block;width:100%;border:0;background:#121318}
         .msg{padding:16px;color:var(--primary-text-color)}
-      </style><ha-card><div class="msg" id="msg"></div><iframe id="f" title="CleanYourTV remote" allow="vibrate"></iframe></ha-card>`;
+        .bar{display:none;justify-content:flex-end;padding:6px 6px 0}
+        .x{width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:#e8e9ee;font:22px/40px system-ui,sans-serif;
+          cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+        .x:hover,.x:focus-visible{background:rgba(255,255,255,.18);outline:none}
+      </style><ha-card><div class="bar" id="bar"><button class="x" id="x" type="button" aria-label="Close" title="Close">&#x2715;</button></div>
+      <div class="msg" id="msg"></div><iframe id="f" title="CleanYourTV remote" allow="vibrate"></iframe></ha-card>`;
       this._frame = root.getElementById('f');
       this._msg = root.getElementById('msg');
+      this._bar = root.getElementById('bar');
+      root.getElementById('x').addEventListener('click', () => this._close());
     }
 
     _say(text) {
