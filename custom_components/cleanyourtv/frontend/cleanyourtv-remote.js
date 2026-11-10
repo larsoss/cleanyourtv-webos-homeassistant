@@ -4,7 +4,7 @@
  *   entity: media_player.your_tv     (the CleanYourTV media player)
  *   height: 720                      (optional, in pixels)
  *   theme: auto                      (optional: auto = as Home Assistant's theme, light or dark)
- *   close: auto                      (optional: a close button; auto = only when the card is in a popup, true = always, false = never)
+ *   close: auto                      (optional: a close button beside the power button; auto = only in a popup, true = always, false = never)
  *
  * The page itself is in pages/<language>.html (made by tools/build-card.js). It runs in a frame of the same origin; this card answers
  * its WebSocket and its list requests by asking Home Assistant (the cleanyourtv/* WebSocket commands of the integration).
@@ -29,6 +29,7 @@
       this._config = Object.assign({ height: 720 }, config);
       this._listeners = [];
       this._built = false;
+      if (this._card) this._card.classList.toggle('plain', !!this._config.plain);
       if (this._frame) this._build();
       this._placeClose();
       this._theme();
@@ -57,9 +58,14 @@
     _theme() {
       const dark = this._dark();
       if (this._card) this._card.classList.toggle('light', !dark);
+      // the frame's colour scheme matches its page, or the browser paints an opaque backdrop behind the see-through page
+      if (this._frame) this._frame.style.colorScheme = dark ? 'dark' : 'light';
       try {
         const d = this._frame && this._frame.contentDocument;
-        if (d && d.documentElement) d.documentElement.classList.toggle('light', !dark);
+        if (d && d.documentElement) {
+          d.documentElement.classList.toggle('light', !dark);
+          d.documentElement.classList.toggle('dark', dark);
+        }
       } catch (e) {}
     }
 
@@ -94,13 +100,22 @@
       return null;
     }
 
-    _placeClose() {
+    // the close button sits in the remote's own top bar, beside the power button (the page shows it when the card says so)
+    _closable() {
+      if (typeof this.closeAction === 'function') return true; // the remote page
       const want = this._config && this._config.close;
-      const show = want === true || want === 'true' || ((want === undefined || want === 'auto') && !!this._popup());
-      if (this._bar) this._bar.style.display = show ? 'flex' : 'none';
+      return want === true || want === 'true' || ((want === undefined || want === 'auto') && !!this._popup());
+    }
+
+    _placeClose() {
+      try {
+        const w = this._frame && this._frame.contentWindow;
+        if (w && typeof w.CYTV_CLOSE === 'function') w.CYTV_CLOSE(this._closable());
+      } catch (e) {}
     }
 
     _close() {
+      if (typeof this.closeAction === 'function') return this.closeAction();
       const p = this._popup();
       const fire = (el, type, detail) => el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
       if (p && p.kind === 'dialog') {
@@ -125,24 +140,20 @@
     _render() {
       const root = this.attachShadow({ mode: 'open' });
       root.innerHTML = `<style>
-        ha-card{overflow:hidden;background:#101116}
-        iframe{display:block;width:100%;border:0;background:#101116}
-        ha-card.light,ha-card.light iframe{background:#f2f3f7}
+        /* the page is see-through: the remote stands on the card's own background (or the page's, without a card frame) */
+        ha-card{overflow:hidden}
+        ha-card.plain{background:none;border:0;box-shadow:none}
+        iframe{display:block;width:100%;border:0;background:transparent}
         .msg{padding:16px;color:var(--primary-text-color)}
-        .bar{display:none;justify-content:flex-end;padding:6px 6px 0}
-        .x{width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:#e8e9ee;font:22px/40px system-ui,sans-serif;
-          cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
-        .x:hover,.x:focus-visible{background:rgba(255,255,255,.18);outline:none}
-        .light .x{background:rgba(0,0,0,.06);color:#16181f}
-        .light .x:hover,.light .x:focus-visible{background:rgba(0,0,0,.12)}
-      </style><ha-card><div class="bar" id="bar"><button class="x" id="x" type="button" aria-label="Close" title="Close">&#x2715;</button></div>
-      <div class="msg" id="msg"></div><iframe id="f" title="CleanYourTV remote" allow="vibrate"></iframe></ha-card>`;
+      </style><ha-card><div class="msg" id="msg"></div><iframe id="f" title="CleanYourTV remote" allow="vibrate"></iframe></ha-card>`;
       this._frame = root.getElementById('f');
       this._msg = root.getElementById('msg');
-      this._bar = root.getElementById('bar');
       this._card = root.querySelector('ha-card');
-      this._frame.addEventListener('load', () => this._theme());
-      root.getElementById('x').addEventListener('click', () => this._close());
+      if (this._config && this._config.plain) this._card.classList.add('plain');
+      this._frame.addEventListener('load', () => {
+        this._theme();
+        this._placeClose();
+      });
     }
 
     _say(text) {
@@ -177,6 +188,8 @@
           mac: info.mac,
           keys: KEYS,
           dark: () => card._dark(),
+          closable: () => card._closable(),
+          close: () => card._close(),
           connected: () => attr().connected === true,
           power: () => attr().power_state || (attr().connected ? 'Active' : ''),
           action: m => card._hass.callWS({ type: 'cleanyourtv/action', entry_id: info.entry_id, action: m }),

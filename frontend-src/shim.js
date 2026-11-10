@@ -10,6 +10,24 @@
   } catch (e) {}
   /* light or dark, as Home Assistant's theme (the card sets it again when the theme changes) */
   if (B.dark && !B.dark()) document.documentElement.classList.add('light');
+  else document.documentElement.classList.add('dark');
+  /* the close button: in the top bar, beside the power button and in its style, when the card is closable (a popup, the remote page) */
+  var cyx = null;
+  window.CYTV_CLOSE = function (show) {
+    if (cyx) cyx.style.display = show ? '' : 'none';
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    var pwr = document.getElementById('pwr');
+    if (!pwr || !B.close) return;
+    cyx = document.createElement('button');
+    cyx.id = 'cyx';
+    cyx.className = 'info';
+    cyx.setAttribute('aria-label', 'Close');
+    cyx.innerHTML = '<svg class=ic viewBox="0 0 24 24" aria-hidden=true><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    cyx.addEventListener('click', function () { B.close(); });
+    pwr.parentNode.insertBefore(cyx, pwr);
+    window.CYTV_CLOSE(B.closable && B.closable());
+  });
   window.CYTV_PIC = B.pic; /* pictures: /api/cleanyourtv/<entry>/... (the build puts it in front of the page's own paths) */
   /* the wrapper of an app, as far as this page needs one: Home Assistant wakes the TV (Wake-on-LAN or the screen back on) */
   window.CYTV_APP = {

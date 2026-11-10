@@ -83,7 +83,7 @@ node /media/developer/cleanyourtv/cytv-addons.js install homeassistant
 
 The remote comes with the integration, so there is nothing extra to install. You can open it in three ways:
 
-- **Sidebar:** **TV remote**. The ✕ at the top right takes you back.
+- **Sidebar:** **TV remote**. The ✕ next to the power button takes you back.
 - **The TV's device page:** **Visit**.
 - **On a dashboard:** go to **Settings › Devices & services › CleanYourTV › ⚙️ › Put the remote on a dashboard**. This adds a view with the remote to the dashboard you choose.
 
@@ -94,7 +94,7 @@ type: custom:cleanyourtv-remote
 entity: media_player.lg_tv   # the CleanYourTV media player, not the LG webOS one
 height: 720
 theme: auto   # light or dark: auto follows Home Assistant's theme
-close: auto   # a ✕ to close it: auto = only in a popup (browser_mod, Bubble Card, …), true = always, false = never
+close: auto   # a ✕ next to the power button: auto = only in a popup (browser_mod, Bubble Card, …), true = always, false = never
 ```
 
 ## What you get

@@ -72,7 +72,7 @@ function themed(html) {
   });
   const dark = [...used].map(([c, v]) => v + ':' + c).join(';'),
     light = [...used].map(([c, v]) => v + ':' + LIGHT[c]).join(';');
-  return html.slice(0, a + 7) + ':root{' + dark + '}html.light{' + light + ';color-scheme:light}' + css + html.slice(b);
+  return html.slice(0, a + 7) + ':root{' + dark + ';color-scheme:dark}html.light{' + light + ';color-scheme:light}' + css + html.slice(b);
 }
 function build(lang) {
   let html = page.phonePage(i18n, lang, '', '');
@@ -82,6 +82,12 @@ function build(lang) {
     html = html.split(a).join(b);
   }
   html = themed(html);
+  // in Home Assistant: the page is see-through (the remote stands on the card or the page around it, no box of its own), the remote sits
+  // under the top bar instead of in the middle of the frame, and the close button (the shim's) keeps its distance from the power button
+  html = html.replace(
+    '</style>',
+    'body,.tabbar{background:transparent}#kb>.cv{margin:10px 0 auto}#tp>.cv{margin:4px 0 auto}#cyx{flex:none}</style>'
+  );
   // the shim runs first: it is the first script of the page
   const at = html.indexOf('<script');
   if (at < 0) throw new Error(lang + ': no script in the page');

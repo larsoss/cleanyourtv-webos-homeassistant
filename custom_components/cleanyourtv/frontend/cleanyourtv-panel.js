@@ -23,14 +23,8 @@ class CleanYourTVPanel extends HTMLElement {
       select{font:inherit;background:transparent;color:inherit;border:1px solid var(--divider-color);border-radius:8px;padding:6px}
       .wrap{max-width:440px;margin:0 auto;padding:12px}
       .msg{padding:24px;color:var(--primary-text-color)}
-      .x{width:48px;height:48px;margin-left:4px;border:0;border-radius:50%;background:none;color:inherit;cursor:pointer;padding:12px;
-        -webkit-tap-highlight-color:transparent}
-      .x:hover,.x:focus-visible{background:rgba(127,127,127,.15);outline:none}
-      .x svg{display:block;width:24px;height:24px;fill:currentColor}
-    </style><div class="bar"><ha-menu-button></ha-menu-button><h1 id="t">TV</h1><select id="s" hidden></select>
-      <button class="x" id="x" type="button" aria-label="Close" title="Close"><svg viewBox="0 0 24 24"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg></button></div><div class="wrap" id="w"></div>`;
+    </style><div class="bar"><ha-menu-button></ha-menu-button><h1 id="t">TV</h1><select id="s" hidden></select></div><div class="wrap" id="w"></div>`;
     root.getElementById('s').addEventListener('change', e => this._show(e.target.value));
-    root.getElementById('x').addEventListener('click', () => this._leave());
   }
 
   // close: back to the page the remote was opened from (a dashboard, the device page), or to the default dashboard without one
@@ -74,7 +68,8 @@ class CleanYourTVPanel extends HTMLElement {
     const w = this.shadowRoot.getElementById('w');
     w.innerHTML = '';
     const card = document.createElement('cleanyourtv-remote');
-    card.setConfig({ entity: tv.entity_id, height: Math.max(640, Math.min(900, window.innerHeight - 80)) });
+    card.setConfig({ entity: tv.entity_id, plain: true, height: Math.max(600, Math.min(760, window.innerHeight - 72)) });
+    card.closeAction = () => this._leave(); // the ✕ in the remote's top bar: back
     w.appendChild(card);
     card.hass = this._hass;
     this._card = card;
