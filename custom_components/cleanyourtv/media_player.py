@@ -30,6 +30,7 @@ LOGO = Path(__file__).parent / "brand" / "icon@2x.png"
 def _read_logo() -> bytes:
     return LOGO.read_bytes()
 
+
 F = MediaPlayerEntityFeature
 LIVE_TV = "Live TV"
 
