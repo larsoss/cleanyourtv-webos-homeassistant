@@ -115,6 +115,16 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     await addon.command("app netflix")
     await until(lambda: st(hass, MP).attributes.get("app_id") == "netflix" and not st(hass, MP).attributes.get("media_channel"))
     assert (await mp.async_get_media_image())[0] == b"PNG"
+    # Home is CleanYourTV's: its logo; an app the TV has no icon for: no picture (not a broken one)
+    await addon.command("app com.webos.app.home")
+    await until(lambda: st(hass, MP).attributes.get("app_id") == "com.webos.app.home")
+    assert st(hass, MP).attributes.get("entity_picture")
+    body, ctype = await mp.async_get_media_image()
+    assert body[:4] == b"\x89PNG" and ctype == "image/png"
+    await addon.command("app noicon")
+    await until(lambda: st(hass, MP).attributes.get("app_id") == "noicon")
+    assert (await mp.async_get_media_image())[0] is None
+    await until(lambda: not st(hass, MP).attributes.get("entity_picture"))
 
     # Live TV channels as sources
     r = await hass.config_entries.options.async_init(entry.entry_id)

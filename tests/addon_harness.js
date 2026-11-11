@@ -74,6 +74,11 @@ const api = http.createServer((req, res) => {
       return j({ returnValue: true });
     }
     if (u.indexOf('/icon/') === 0) {
+      // like the TV: no icon for Home (CleanYourTV's) and for an app without one
+      if (/\/icon\/(com\.webos\.app\.home|noicon)$/.test(u)) {
+        res.writeHead(404);
+        return res.end();
+      }
       res.writeHead(200, { 'content-type': 'image/png' });
       return res.end('PNG');
     }

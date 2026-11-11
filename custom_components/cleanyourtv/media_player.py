@@ -4,6 +4,7 @@ programme and logo, and the volume; Home Assistant turns it on (Wake-on-LAN) and
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components.media_player import (
@@ -22,6 +23,12 @@ from . import SIGNAL_LISTS, CytvConfigEntry
 from .client import CytvError
 from .const import CONF_LIVE_SOURCES, CONF_MAC, DOMAIN, HOME_APP, LIVE_PREFIX, MEDIA_TYPE_APP, MEDIA_TYPE_CHANNEL
 from .entity import CytvEntity
+
+LOGO = Path(__file__).parent / "brand" / "icon@2x.png"
+
+
+def _read_logo() -> bytes:
+    return LOGO.read_bytes()
 
 F = MediaPlayerEntityFeature
 LIVE_TV = "Live TV"
@@ -58,6 +65,7 @@ class CytvMediaPlayer(CytvEntity, MediaPlayerEntity):
         super().__init__(entry, "media_player")
         self._sources: dict[str, tuple[str, Any]] = {}
         self._titles: dict[str, str] = {}  # app id -> name, from the TV's lists
+        self._no_icon: set[str] = set()  # apps the TV has no icon for
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -187,7 +195,9 @@ class CytvMediaPlayer(CytvEntity, MediaPlayerEntity):
         live = self._live
         if live and live.get("logo"):
             return f"logo{live['num']}"
-        if self.app_id and not live:
+        if self.app_id == HOME_APP:
+            return "cleanyourtv"  # Home is CleanYourTV's: its own logo (the TV has no icon for it)
+        if self.app_id and not live and self.app_id not in self._no_icon:
             return f"icon{self.app_id}"
         return None
 
@@ -195,8 +205,16 @@ class CytvMediaPlayer(CytvEntity, MediaPlayerEntity):
         live = self._live
         if live and live.get("logo"):
             return await self._client.async_picture(f"/api/logo/{int(live['num'])}")
+        if self.app_id == HOME_APP:
+            return await self.hass.async_add_executor_job(_read_logo), "image/png"
         if self.app_id:
-            return await self._client.async_picture(f"/api/icon/{self.app_id}")
+            app = self.app_id
+            body, ctype = await self._client.async_picture(f"/api/icon/{app}")
+            if body is None and app not in self._no_icon:
+                # no icon for this app: no picture at all, rather than a broken one
+                self._no_icon.add(app)
+                self.async_write_ha_state()
+            return body, ctype
         return None, None
 
     @property
