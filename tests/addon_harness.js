@@ -61,6 +61,22 @@ const api = http.createServer((req, res) => {
       res.end(JSON.stringify(o));
     };
     const u = req.url;
+    // the service's notification card: it downloads the picture from the address it gets, as the TV does
+    if (u === '/api/notify' && req.method === 'POST') {
+      const card = JSON.parse(b || '{}');
+      if (!card.image) return say({ ev: 'notify', card }), j({ returnValue: true });
+      return http
+        .get(card.image, r => {
+          const parts = [];
+          r.on('data', d => parts.push(d));
+          r.on('end', () => {
+            const buf = Buffer.concat(parts);
+            say({ ev: 'notify', card, status: r.statusCode, type: r.headers['content-type'], bytes: buf.length, head: buf.slice(0, 4).toString('hex') });
+            j({ returnValue: true });
+          });
+        })
+        .on('error', e => (say({ ev: 'notify', card, error: e.message }), j({ returnValue: true })));
+    }
     if (u === '/api/apps') return j({ apps: [{ id: 'netflix', title: 'Netflix' }, { id: 'youtube.leanback.v4', title: 'YouTube' }] });
     if (u === '/api/inputs') return j({ devices: [{ appId: 'com.webos.app.hdmi1', label: 'HDMI 1', port: 1 }] });
     if (u === '/api/live/channels') return j({ channels: CH });

@@ -20,10 +20,12 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import CytvConfigEntry, refresh_lists
-from .client import KEYS, POWER_ACTIONS, CytvError
+from .client import KEYS, NOTIFY_PICTURE_MAX, POWER_ACTIONS, CytvError
 from .const import DOMAIN
 from .entity import CytvEntity
 from .media_player import turn_on
+
+POSITIONS = [f"{v}-{h}" for v in ("top", "middle", "bottom") for h in ("left", "center", "right")]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
@@ -48,6 +50,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry, add: Ad
         "async_pointer",
     )
     platform.async_register_entity_service("refresh_lists", None, "async_refresh_lists")
+    platform.async_register_entity_service(
+        "show_notification",
+        {
+            vol.Optional("title", default=""): vol.All(cv.string, vol.Length(max=120)),
+            vol.Optional("message", default=""): vol.All(cv.string, vol.Length(max=400)),
+            vol.Optional("camera"): cv.entity_domain("camera"),
+            vol.Optional("image_url"): cv.string,
+            vol.Optional("seconds", default=10): vol.All(vol.Coerce(int), vol.Range(2, 120)),
+            vol.Optional("position", default="top-right"): vol.In(POSITIONS),
+        },
+        "async_show_notification",
+    )
 
 
 class CytvTVEntity(CytvEntity, RemoteEntity):
@@ -130,6 +144,58 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
             await self._do(self._client.async_click())
         if scroll:
             await self._do(self._client.async_scroll(scroll))
+
+    async def async_show_notification(
+        self,
+        title: str = "",
+        message: str = "",
+        camera: str | None = None,
+        image_url: str | None = None,
+        seconds: int = 10,
+        position: str = "top-right",
+    ) -> None:
+        """A card over whatever is on the TV: a title, a text and a picture. Home Assistant gets the picture (a camera's snapshot, or
+        an address Home Assistant can reach) and sends it along, so the TV needs no way to Home Assistant."""
+        image: bytes | None = None
+        image_type = "image/jpeg"
+        if camera:
+            from homeassistant.components.camera import async_get_image
+
+            try:
+                img = await async_get_image(self.hass, camera, timeout=10)
+            except HomeAssistantError as err:
+                raise HomeAssistantError(f"no picture from {camera}: {err}") from err
+            image, image_type = img.content, img.content_type
+        elif image_url:
+            image, image_type = await self._fetch_picture(image_url)
+        if not (title or message or image):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="nothing_to_show")
+        if image and len(image) > NOTIFY_PICTURE_MAX:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="picture_too_large")
+        await self._do(self._client.async_notify(title, message, seconds, position, image, image_type))
+
+    async def _fetch_picture(self, url: str) -> tuple[bytes, str]:
+        """A picture from an address: one of Home Assistant itself (/api/..., /local/...) or of the network."""
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+        from homeassistant.helpers.network import NoURLAvailableError, get_url
+
+        if url.startswith("/"):
+            try:
+                url = get_url(self.hass, allow_external=False) + url
+            except NoURLAvailableError as err:
+                raise HomeAssistantError("Home Assistant does not know its own address for this picture") from err
+        try:
+            async with asyncio.timeout(15):
+                async with async_get_clientsession(self.hass).get(url) as resp:
+                    if resp.status != 200:
+                        raise HomeAssistantError(f"the picture's address answered {resp.status}")
+                    ctype = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+                    if not ctype.startswith("image/"):
+                        raise HomeAssistantError("that address is not a picture")
+                    body = await resp.content.read(NOTIFY_PICTURE_MAX + 1)
+        except (TimeoutError, OSError, ValueError) as err:
+            raise HomeAssistantError(f"could not get the picture: {err}") from err
+        return body, ctype
 
     async def async_refresh_lists(self) -> None:
         refresh_lists(self.hass, self._entry)

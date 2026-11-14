@@ -14,6 +14,7 @@ This module has no Home Assistant imports, so it can be tested on its own.
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import logging
 import socket
@@ -28,6 +29,8 @@ DEFAULT_PORT = 8801
 POLL_TIMEOUT_S = 40  # the add-on answers a long poll after 25 s at the latest
 RETRY_S = (2, 5, 10, 20, 30)  # waits between attempts while the TV does not answer; the last one repeats
 ACTION_TIMEOUT_S = 10
+NOTIFY_TIMEOUT_S = 30  # the picture goes along
+NOTIFY_PICTURE_MAX = 6 * 1024 * 1024  # the TV's limit for a notification's picture
 
 # the buttons the TV takes (the Phone remote's remotekeys.js KEYS)
 KEYS = [
@@ -337,6 +340,35 @@ class CytvTV:
 
     async def async_channels(self) -> list[dict[str, Any]]:
         return [c for c in (await self._get("/api/channels")).get("channels", []) if c.get("num")]
+
+    async def async_notify(
+        self,
+        title: str = "",
+        text: str = "",
+        seconds: int = 10,
+        position: str = "top-right",
+        image: bytes | None = None,
+        image_type: str = "image/jpeg",
+    ) -> None:
+        """A card over whatever is on the TV (CleanYourTV's notifications), with a picture sent along (a camera snapshot)."""
+        body: dict[str, Any] = {"title": title, "text": text, "seconds": seconds, "position": position}
+        if image:
+            body["image"] = base64.b64encode(image).decode()
+            body["image_type"] = image_type
+        try:
+            async with asyncio.timeout(NOTIFY_TIMEOUT_S):
+                async with self._session.post(self._url("/api/notify"), json=body, headers=self._headers) as resp:
+                    if resp.status == 401:
+                        raise CytvAuthError("the TV does not know this Home Assistant (any more)")
+                    if resp.status == 404:
+                        raise CytvError("the add-on on the TV is too old for notifications: update it")
+                    answer = await resp.json(content_type=None)
+        except CytvError:
+            raise
+        except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as err:
+            raise CytvError(f"the TV did not answer: {err}") from err
+        if not isinstance(answer, dict) or not answer.get("ok"):
+            raise CytvError(str((answer or {}).get("error") or "the TV refused it"))
 
     async def async_picture(self, path: str) -> tuple[bytes | None, str | None]:
         """A logo (/api/logo/<n>) or an app icon (/api/icon/<id>), for the media player's picture."""

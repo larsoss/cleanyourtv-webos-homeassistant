@@ -134,6 +134,38 @@ actions:
 mode: single
 ```
 
+## The doorbell on the TV
+
+`cleanyourtv.show_notification` shows a card over whatever is playing: a title, a text and a camera's snapshot. Home Assistant takes the snapshot and sends it along, so the TV needs no address or token of Home Assistant. The card does not take the remote, and leaves after the time you set.
+
+```yaml
+alias: Doorbell on the TV
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.doorbell_visitor
+    to: "on"
+conditions:
+  - condition: state
+    entity_id: media_player.lg_tv
+    state:
+      - playing
+      - paused
+      - "on"
+actions:
+  - action: cleanyourtv.show_notification
+    target:
+      entity_id: remote.lg_tv_remote
+    data:
+      title: Front door
+      message: Someone is at the door
+      camera: camera.doorbell
+      seconds: 20
+      position: top-right
+mode: single
+```
+
+Instead of `camera`, `image_url` takes a picture at an address: one of Home Assistant itself works too (`/local/...`). Without a picture, the card is just text. Needs the add-on on the TV at 0.3.0 or newer.
+
 ## Problems?
 
 | You see | Do this |

@@ -142,6 +142,12 @@
     },
     "unknown_command": {
       "message": "Onbekend commando: {command}. Gebruik een toetsnaam (UP, ENTER, HOME, VOLUMEUP, RED, 1 ...) of text:, launch:, live:, enter, delete, click."
+    },
+    "nothing_to_show": {
+      "message": "Geef een titel, een tekst, een camera of een afbeelding."
+    },
+    "picture_too_large": {
+      "message": "De foto is groter dan 6 MB."
     }
   },
   "services": {
@@ -214,6 +220,51 @@
     "refresh_lists": {
       "name": "Lijsten verversen",
       "description": "Leest de apps, ingangen en Live TV-zenders van de tv opnieuw."
+    },
+    "show_notification": {
+      "name": "Melding tonen",
+      "description": "Toont een kaart met titel, tekst en een foto (de snapshot van een camera) over wat er op de tv speelt, zonder de afstandsbediening over te nemen.",
+      "fields": {
+        "title": {
+          "name": "Titel",
+          "description": "Tot 120 tekens."
+        },
+        "message": {
+          "name": "Tekst",
+          "description": "Tot 400 tekens."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Een camera waarvan de snapshot op de kaart komt, zoals de deurbel."
+        },
+        "image_url": {
+          "name": "Afbeeldingsadres",
+          "description": "In plaats van een camera: een afbeelding op dit adres. Een adres van Home Assistant zelf mag (/local/... of de entity_picture van een camera)."
+        },
+        "seconds": {
+          "name": "Seconden",
+          "description": "Hoe lang de kaart blijft staan (2 tot 120)."
+        },
+        "position": {
+          "name": "Plek",
+          "description": "Waar op het scherm de kaart staat."
+        }
+      }
+    }
+  },
+  "selector": {
+    "position": {
+      "options": {
+        "top-left": "boven links",
+        "top-center": "boven midden",
+        "top-right": "boven rechts",
+        "middle-left": "midden links",
+        "middle-center": "midden midden",
+        "middle-right": "midden rechts",
+        "bottom-left": "onder links",
+        "bottom-center": "onder midden",
+        "bottom-right": "onder rechts"
+      }
     }
   }
 }

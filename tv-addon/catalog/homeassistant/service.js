@@ -51,6 +51,8 @@ const POWER = {
   shutdown: { m: 'shutDown', a: { reason: 'remoteKey' } },
 };
 const HOME = 'com.webos.app.home';
+const PICTURE_MAX = 6 << 20, // as the service's own limit for a notification's picture
+  PICTURE_MS = 5 * 60000;
 const VERSION = (() => {
   try {
     return require('./addon.json').version;
@@ -70,14 +72,15 @@ const json = (res, o, code) => {
   res.writeHead(code || 200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(o));
 };
-function readBody(req) {
+function readBody(req, max) {
+  const limit = max || 8192;
   return new Promise(resolve => {
     let b = '',
       big = false;
     req.on('data', c => {
       if (big) return;
       b += c;
-      if (b.length > 8192) big = true;
+      if (b.length > limit) big = true;
     });
     req.on('end', () => {
       if (big) return resolve({});
@@ -399,6 +402,52 @@ function create(ctx, opts) {
     },
   };
 
+  // ---- a card over whatever is on screen (CleanYourTV's notifications), with a picture Home Assistant sends along ----
+  // Home Assistant sends the picture itself (a camera snapshot), so the TV needs no address of Home Assistant and no token of it. The
+  // add-on keeps it a few minutes under a random address that only the TV itself may read, and hands that address to the service's
+  // notification card (POST /api/notify on the loopback, which needs no token from there).
+  const pictures = new Map(); // id -> {type, buf, until}
+  const PICTURE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const POSITIONS = /^(top|middle|bottom)-(left|center|right)$/;
+  function keepPicture(type, buf) {
+    const now = Date.now();
+    pictures.forEach((p, id) => p.until < now && pictures.delete(id));
+    while (pictures.size >= 4) pictures.delete(pictures.keys().next().value);
+    const id = crypto.randomBytes(16).toString('hex');
+    pictures.set(id, { type, buf, until: now + PICTURE_MS });
+    return id;
+  }
+  async function notify(m) {
+    const card = {
+      title: String(m.title || '').slice(0, 120),
+      text: String(m.text || '').slice(0, 400),
+      seconds: Math.max(2, Math.min(120, Math.round(Number(m.seconds) || 10))),
+      position: POSITIONS.test(String(m.position || '')) ? String(m.position) : 'top-right',
+    };
+    if (m.image) {
+      const type = String(m.image_type || 'image/jpeg').split(';')[0].trim().toLowerCase();
+      if (PICTURE_TYPES.indexOf(type) < 0) return { ok: false, error: 'not a picture' };
+      const buf = Buffer.from(String(m.image), 'base64');
+      if (!buf.length || buf.length > PICTURE_MAX) return { ok: false, error: 'picture too large' };
+      // the TV's own network address: the service refuses to fetch a picture from the loopback (its own pages)
+      const ip = lanIp();
+      if (!ip) return { ok: false, error: 'the TV has no network address' };
+      const port = srv && srv.address() ? srv.address().port : PORT;
+      card.image = 'http://' + ip + ':' + port + '/api/picture/' + keepPicture(type, buf);
+    }
+    if (!card.title && !card.text && !card.image) return { ok: false, error: 'nothing to show' };
+    const r = await apiRequest('POST', '/api/notify', card);
+    return r && !r.error && r.returnValue !== false ? { ok: true } : { ok: false, error: (r && (r.error || r.errorText)) || 'no card' };
+  }
+  function servePicture(res, id, addr) {
+    const p = pictures.get(id);
+    // only the TV itself reads it (the service fetches the picture for its card), and only for a few minutes
+    const self = addr.replace(/^::ffff:/, '');
+    if (!p || p.until < Date.now() || (self !== '127.0.0.1' && self !== '::1' && self !== lanIp())) return json(res, { error: 'not found' }, 404);
+    res.writeHead(200, { 'content-type': p.type, 'content-length': p.buf.length, 'cache-control': 'no-store' });
+    res.end(p.buf);
+  }
+
   // ---- pairing and tokens ----
   let pair = null; // {until, timer}: the pairing window
   const tries = {};
@@ -525,6 +574,7 @@ function create(ctx, opts) {
       q = req.url.split('?')[1] || '';
     const addr = String((req.socket && req.socket.remoteAddress) || '');
     if (req.headers.origin) return json(res, { error: 'forbidden' }, 403); // not for web pages: only Home Assistant calls this
+    if (req.method === 'GET' && u.indexOf('/api/picture/') === 0) return servePicture(res, u.slice('/api/picture/'.length), addr);
     // what Home Assistant's discovery asks: is the add-on here, would it pair now, and which TV it is (the MAC is no secret on the LAN)
     if (req.method === 'GET' && u === '/api/hello')
       return tvInfo().then(i => json(res, { service: 'cleanyourtv-homeassistant', version: VERSION, open: open(), mac: i.mac, model: i.model }));
@@ -574,6 +624,17 @@ function create(ctx, opts) {
           r = { ok: false, error: String((e && e.message) || e).slice(0, 160) };
         }
         json(res, { ok: !!r.ok, error: r.ok ? '' : r.error || 'failed' });
+      });
+    if (req.method === 'POST' && u === '/api/notify')
+      return readBody(req, PICTURE_MAX * 1.4 + 4096).then(async m => {
+        if (!allowed(c.id)) return json(res, { ok: false, error: 'slow down' }, 429);
+        let r;
+        try {
+          r = await notify(m);
+        } catch (e) {
+          r = { ok: false, error: String((e && e.message) || e).slice(0, 160) };
+        }
+        json(res, { ok: !!r.ok, error: r.ok ? '' : r.error || 'failed' }, r.ok ? 200 : 400);
       });
     if (req.method === 'POST' && u === '/api/unpair') {
       save(s => {

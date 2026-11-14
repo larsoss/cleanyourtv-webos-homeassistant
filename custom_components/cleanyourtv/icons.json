@@ -38,6 +38,9 @@
     },
     "refresh_lists": {
       "service": "mdi:refresh"
+    },
+    "show_notification": {
+      "service": "mdi:message-image"
     }
   }
 }

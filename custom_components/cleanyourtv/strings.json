@@ -142,6 +142,12 @@
     },
     "unknown_command": {
       "message": "Unknown command: {command}. Use a key name (UP, ENTER, HOME, VOLUMEUP, RED, 1 ...) or text:, launch:, live:, enter, delete, click."
+    },
+    "nothing_to_show": {
+      "message": "Give a title, a text, a camera or a picture."
+    },
+    "picture_too_large": {
+      "message": "The picture is larger than 6 MB."
     }
   },
   "services": {
@@ -214,6 +220,51 @@
     "refresh_lists": {
       "name": "Refresh lists",
       "description": "Reads the apps, inputs and Live TV channels of the TV again."
+    },
+    "show_notification": {
+      "name": "Show a notification",
+      "description": "Shows a card with a title, a text and a picture (a camera's snapshot) over whatever is on the TV, without taking the remote.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "Up to 120 characters."
+        },
+        "message": {
+          "name": "Text",
+          "description": "Up to 400 characters."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "A camera whose snapshot goes on the card, such as the doorbell."
+        },
+        "image_url": {
+          "name": "Picture address",
+          "description": "Instead of a camera: a picture at this address. An address of Home Assistant itself works too (/local/... or a camera's entity_picture)."
+        },
+        "seconds": {
+          "name": "Seconds",
+          "description": "How long the card stays (2 to 120)."
+        },
+        "position": {
+          "name": "Position",
+          "description": "Where on the screen the card is."
+        }
+      }
+    }
+  },
+  "selector": {
+    "position": {
+      "options": {
+        "top-left": "top left",
+        "top-center": "top center",
+        "top-right": "top right",
+        "middle-left": "middle left",
+        "middle-center": "middle center",
+        "middle-right": "middle right",
+        "bottom-left": "bottom left",
+        "bottom-center": "bottom center",
+        "bottom-right": "bottom right"
+      }
     }
   }
 }

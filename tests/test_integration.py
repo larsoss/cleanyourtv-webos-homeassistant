@@ -126,6 +126,31 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     assert (await mp.async_get_media_image())[0] is None
     await until(lambda: not st(hass, MP).attributes.get("entity_picture"))
 
+    # a card over whatever plays, with a camera's snapshot that Home Assistant sends along
+    from unittest.mock import patch
+
+    from homeassistant.components.camera import Image
+
+    jpeg = b"\xff\xd8\xff\xe0" + b"x" * 2000
+    with patch("homeassistant.components.camera.async_get_image", return_value=Image("image/jpeg", jpeg)):
+        await hass.services.async_call(
+            DOMAIN,
+            "show_notification",
+            {"entity_id": RM, "title": "Voordeur", "message": "Er staat iemand", "camera": "camera.deurbel", "seconds": 20},
+            blocking=True,
+        )
+    e = await addon.wait_for(lambda e: e.get("ev") == "notify")
+    assert e["card"]["title"] == "Voordeur" and e["card"]["text"] == "Er staat iemand" and e["card"]["seconds"] == 20
+    assert e["card"]["position"] == "top-right"
+    assert e["status"] == 200 and e["type"] == "image/jpeg" and e["bytes"] == len(jpeg) and e["head"] == "ffd8ffe0"
+    await hass.services.async_call(
+        DOMAIN, "show_notification", {"entity_id": RM, "message": "Wasmachine klaar", "position": "bottom-left"}, blocking=True
+    )
+    e = await addon.wait_for(lambda e: e.get("ev") == "notify" and e["card"]["text"] == "Wasmachine klaar")
+    assert e["card"]["position"] == "bottom-left" and "image" not in e["card"]
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "show_notification", {"entity_id": RM}, blocking=True)
+
     # Live TV channels as sources
     r = await hass.config_entries.options.async_init(entry.entry_id)
     assert r["type"] is FlowResultType.MENU

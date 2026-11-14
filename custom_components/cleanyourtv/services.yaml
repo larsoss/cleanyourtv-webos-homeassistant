@@ -87,3 +87,48 @@ refresh_lists:
     entity:
       integration: cleanyourtv
       domain: remote
+show_notification:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    title:
+      example: Voordeur
+      selector:
+        text:
+    message:
+      example: Er staat iemand voor de deur
+      selector:
+        text:
+          multiline: true
+    camera:
+      selector:
+        entity:
+          domain: camera
+    image_url:
+      example: /local/doorbell.jpg
+      selector:
+        text:
+    seconds:
+      default: 10
+      selector:
+        number:
+          min: 2
+          max: 120
+          unit_of_measurement: s
+    position:
+      default: top-right
+      selector:
+        select:
+          translation_key: position
+          options:
+            - top-left
+            - top-center
+            - top-right
+            - middle-left
+            - middle-center
+            - middle-right
+            - bottom-left
+            - bottom-center
+            - bottom-right
