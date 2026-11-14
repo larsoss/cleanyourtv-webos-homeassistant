@@ -10,7 +10,7 @@ from __future__ import annotations
 from aiohttp import web
 
 USER = {"Id": "u1", "Name": "lars"}
-MOVIE = {"Id": "m1", "Name": "Heat", "Type": "Movie"}
+MOVIE = {"Id": "m1", "Name": "Heat", "Type": "Movie", "ProductionYear": 1995}
 SERIES = {"Id": "s1", "Name": "Reacher", "Type": "Series"}
 EPISODES = [
     {"Id": "e1", "Name": "Welcome to Margrave", "Type": "Episode", "IndexNumber": 1, "ParentIndexNumber": 1},
@@ -20,10 +20,22 @@ EPISODES = [
         "Type": "Episode",
         "IndexNumber": 2,
         "ParentIndexNumber": 1,
+        "SeriesName": "Reacher",
+        "SeriesId": "s1",
+        "RunTimeTicks": 30_000_000_000,
         "UserData": {"PlaybackPositionTicks": 7_200_000_000, "Played": False},  # 12 minutes in
     },
 ]
 NEXT_UP = EPISODES[1]
+# a film that was started and not finished: 20 of its 100 minutes
+STARTED_MOVIE = {
+    "Id": "m2",
+    "Name": "Sicario",
+    "Type": "Movie",
+    "ProductionYear": 2015,
+    "RunTimeTicks": 60_000_000_000,
+    "UserData": {"PlaybackPositionTicks": 12_000_000_000, "Played": False},
+}
 
 
 class JellyfinFake:
@@ -42,6 +54,9 @@ class JellyfinFake:
         app.router.add_get("/Users", self._users)
         app.router.add_get("/Items", self._items)
         app.router.add_get("/Shows/NextUp", self._next_up)
+        app.router.add_get("/UserItems/Resume", self._resume)
+        app.router.add_get("/Items/{id}", self._item)
+        app.router.add_get("/Items/{id}/Images/Primary", self._poster)
         app.router.add_get("/Shows/{sid}/Episodes", self._episodes)
         app.router.add_get("/Sessions", self._sessions)
         app.router.add_post("/Sessions/{id}/Playing", self._playing)
@@ -76,6 +91,24 @@ class JellyfinFake:
     async def _next_up(self, request: web.Request) -> web.Response:
         self.calls.append("NextUp")
         return web.json_response({"Items": [NEXT_UP]})
+
+    async def _resume(self, request: web.Request) -> web.Response:
+        self.calls.append("Resume")
+        return web.json_response({"Items": [STARTED_MOVIE]})
+
+    async def _item(self, request: web.Request) -> web.Response:
+        self.calls.append("Item")
+        if not self._ok(request):
+            return web.json_response({"error": "no"}, status=401)
+        want = request.match_info["id"]
+        for i in (MOVIE, SERIES, STARTED_MOVIE, *EPISODES):
+            if i["Id"] == want:
+                return web.json_response(i)
+        return web.json_response({"error": "no"}, status=404)
+
+    async def _poster(self, request: web.Request) -> web.Response:
+        self.calls.append("Poster")
+        return web.Response(body=b"JPEG" + request.match_info["id"].encode(), content_type="image/jpeg")
 
     async def _episodes(self, request: web.Request) -> web.Response:
         self.calls.append("Episodes")

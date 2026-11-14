@@ -139,8 +139,11 @@ play:
       domain: remote
   fields:
     title:
-      required: true
       example: Reacher
+      selector:
+        text:
+    item_id:
+      advanced: true
       selector:
         text:
     season:

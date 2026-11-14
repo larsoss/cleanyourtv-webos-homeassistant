@@ -15,6 +15,7 @@ if (!src) {
 const page = require(path.join(src, 'addons/catalog/phoneremote/page.js'));
 const i18n = require(path.join(src, 'helper/i18n.js'));
 const shim = fs.readFileSync(path.join(__dirname, '..', 'frontend-src', 'shim.js'), 'utf8');
+const watch = fs.readFileSync(path.join(__dirname, '..', 'frontend-src', 'watch.js'), 'utf8');
 const out = path.join(__dirname, '..', 'custom_components', 'cleanyourtv', 'frontend', 'pages');
 const langs = fs
   .readdirSync(path.join(src, 'i18n'))
@@ -22,8 +23,22 @@ const langs = fs
   .map(f => f.slice(0, 2))
   .sort();
 
-// each one must be found exactly where it is expected
+// each one must be found exactly where it is expected. None of these may depend on a translated string: the same edits are made in
+// every language.
 const EDITS = [
+  // the Watch tab: what there is to carry on watching on the Jellyfin server, as posters (frontend-src/watch.js). Its panel goes in
+  // front of the tab bar, its button in front of the Live button, and tab() learns the new panel.
+  ['<div id=tabbar class=hide>', '<div id=wa class=hide></div><div id=tabbar class=hide>'],
+  [
+    '<button class=tab id=blv>',
+    '<button class=tab id=bwa><svg class="ic" viewBox="0 0 24 24" aria-hidden=true><path d="M4 4.5h16v11H4z"/><path d="m10 8 4.5 2L10 12z"/>' +
+      '<path d="M8 19h8"/></svg>' + '\u200b' + '</button><button class=tab id=blv>',
+  ],
+  ["['kb','tp','ap','lv'].forEach", "['kb','tp','ap','lv','wa'].forEach"],
+  [
+    "if(id==='lv'){if(tvDown){liveIn=false;noTv($('lvgrid'))}else if(!liveIn)loadLive()}}",
+    "if(id==='lv'){if(tvDown){liveIn=false;noTv($('lvgrid'))}else if(!liveIn)loadLive()}if(id==='wa'&&window.CYTV_WATCH)CYTV_WATCH()}",
+  ],
   // the logos and app icons: through Home Assistant (/api/cleanyourtv/<entry>/...), with the entry's secret as the token
   ['src="/api/logo/\'', 'src="\'+CYTV_PIC+\'/api/logo/\''],
   ['src="/icon/\'', 'src="\'+CYTV_PIC+\'/icon/\''],
@@ -92,6 +107,10 @@ function build(lang) {
       // a remote with more room than it needs (the remote page on a phone): its rows spread over the room, the tab bar at the bottom
       'html.fill #kb>.cv{flex:1 0 auto;margin:0;display:flex;flex-direction:column;justify-content:space-evenly}html.fill #kb>.cv>*{margin-top:0}</style>'
   );
+  // the Watch tab's own script runs after the page's: it uses the page that is there
+  const last = html.lastIndexOf('</script>');
+  if (last < 0) throw new Error(lang + ': no script to follow in the page');
+  html = html.slice(0, last + 9) + '<script>' + watch + '</script>' + html.slice(last + 9);
   // the shim runs first: it is the first script of the page
   const at = html.indexOf('<script');
   if (at < 0) throw new Error(lang + ': no script in the page');

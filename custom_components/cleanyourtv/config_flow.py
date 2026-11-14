@@ -228,7 +228,7 @@ class CytvOptionsFlow(OptionsFlow):
                     )
         schema = vol.Schema(
             {
-                vol.Optional(CONF_JF_URL, default=o.get(CONF_JF_URL, "")): str,
+                vol.Optional(CONF_JF_URL, default=o.get(CONF_JF_URL) or await self._jellyfin_url()): str,
                 vol.Optional(CONF_JF_KEY, default=o.get(CONF_JF_KEY, "")): str,
                 vol.Optional(CONF_JF_USER, default=""): str,
                 vol.Optional(CONF_JF_APP, default=o.get(CONF_JF_APP, DEFAULT_JF_APP)): selector.SelectSelector(
@@ -239,6 +239,17 @@ class CytvOptionsFlow(OptionsFlow):
             }
         )
         return self.async_show_form(step_id="jellyfin", data_schema=schema, errors=errors, description_placeholders=placeholders)
+
+    async def _jellyfin_url(self) -> str:
+        """The server's address, filled in for you: the one Home Assistant's own Jellyfin already uses, else one on the network."""
+        from .jellyfin import async_find_servers, clean_url
+
+        for entry in self.hass.config_entries.async_entries("jellyfin"):
+            url = clean_url(str(entry.data.get("url") or entry.data.get("host") or ""))
+            if url:
+                return url
+        servers = await async_find_servers()
+        return servers[0]["url"] if len(servers) == 1 else ""
 
     def _jellyfin_apps(self) -> list[selector.SelectOptionDict]:
         """The Jellyfin clients to choose from: the ones on this TV first, named as the TV names them; any other id can be typed."""

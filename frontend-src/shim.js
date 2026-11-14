@@ -28,6 +28,14 @@
     pwr.parentNode.insertBefore(cyx, pwr);
     window.CYTV_CLOSE(B.closable && B.closable());
   });
+  /* the Watch tab (watch.js): what there is to carry on watching, and playing one of those */
+  window.CYTV_LIB = {
+    pic: B.pic,
+    token: B.secret,
+    lang: (B.lang && B.lang()) || 'en',
+    list: function () { return B.library(); },
+    play: function (id) { return B.play(id); }
+  };
   window.CYTV_PIC = B.pic; /* pictures: /api/cleanyourtv/<entry>/... (the build puts it in front of the page's own paths) */
   /* the wrapper of an app, as far as this page needs one: Home Assistant wakes the TV (Wake-on-LAN or the screen back on) */
   window.CYTV_APP = {

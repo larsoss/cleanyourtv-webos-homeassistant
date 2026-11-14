@@ -39,9 +39,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry, add: Ad
     add([CytvMediaPlayer(entry)])
 
 
-async def turn_on(entity: CytvEntity) -> None:
+async def turn_on(hass: HomeAssistant, entry: CytvConfigEntry) -> None:
     """Turn the TV on: a dark screen comes back with turnOnScreen; a TV in standby gets Wake-on-LAN."""
-    client = entity._client
+    client = entry.runtime_data.client
     if client.connected and client.power_state == "Screen Off":
         try:
             await client.async_power("on")
@@ -49,7 +49,7 @@ async def turn_on(entity: CytvEntity) -> None:
         except CytvError:
             pass
     # the packet is sent from a worker thread: the event loop does no socket work of its own
-    if not await entity.hass.async_add_executor_job(client.wake, entity._entry.data.get(CONF_MAC)):
+    if not await hass.async_add_executor_job(client.wake, entry.data.get(CONF_MAC)):
         raise HomeAssistantError(translation_domain=DOMAIN, translation_key="no_mac")
 
 
@@ -264,7 +264,7 @@ class CytvMediaPlayer(CytvEntity, MediaPlayerEntity):
             raise HomeAssistantError(str(err)) from err
 
     async def async_turn_on(self) -> None:
-        await turn_on(self)
+        await turn_on(self.hass, self._entry)
 
     async def async_turn_off(self) -> None:
         await self._do(self._client.async_power("standby"))

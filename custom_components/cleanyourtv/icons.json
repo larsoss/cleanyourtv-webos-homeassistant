@@ -18,6 +18,11 @@
       "power_state": {
         "default": "mdi:television"
       }
+    },
+    "select": {
+      "continue_watching": {
+        "default": "mdi:play-box-multiple"
+      }
     }
   },
   "services": {

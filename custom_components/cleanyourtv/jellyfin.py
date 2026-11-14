@@ -5,7 +5,10 @@ the server, not to a person, so every call that is about what someone watched ca
 
   GET  /Users                                          the people on the server, to pick whose library is searched
   GET  /Items?searchTerm=…&userId=…                    find a series or a film by its name
-  GET  /Shows/NextUp?userId=…&seriesId=…               the episode to watch next of a series
+  GET  /Shows/NextUp?userId=…[&seriesId=…]             the episode to watch next, of one series or of them all
+  GET  /UserItems/Resume?userId=…                      films and episodes that were started and not finished
+  GET  /Items/<id>?userId=…                            one item, to play it by its id
+  GET  /Items/<id>/Images/Primary                      its poster
   GET  /Shows/<id>/Episodes?userId=…&season=…          an episode by its number, and the first unwatched one
   GET  /Sessions                                       what is signed in; the TV's app is one of these while it is open
   POST /Sessions/<id>/Playing?playCommand=PlayNow      play it there, from a position in ticks (10 000 000 of them to a second)
@@ -16,7 +19,9 @@ This module has no Home Assistant imports, so it can be tested on its own.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import socket
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -28,6 +33,37 @@ TIMEOUT_S = 15
 SEARCH_KINDS = "Series,Movie"
 # a last resort when the address and the name do not tell: clients that only exist on a TV ("jellyfin" is in every client's name)
 TV_CLIENTS = ("webos", "litefin", "moonfin", "lg ")
+
+
+async def async_find_servers(timeout: float = 1.2) -> list[dict[str, str]]:
+    """Jellyfin servers on the network, as they answer the question Jellyfin's own clients broadcast on UDP 7359.
+
+    Returns [{name, url}]. It is only used to fill the address in for the person setting this up; nothing is contacted.
+    """
+    loop = asyncio.get_running_loop()
+    found: dict[str, dict[str, str]] = {}
+
+    class Ask(asyncio.DatagramProtocol):
+        def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
+            try:
+                got = json.loads(data.decode("utf-8", "replace"))
+            except ValueError:
+                return
+            url = clean_url(str(got.get("Address") or f"http://{addr[0]}:8096"))
+            if url:
+                found[url] = {"name": str(got.get("Name") or url), "url": url}
+
+    transport = None
+    try:
+        transport, _ = await loop.create_datagram_endpoint(Ask, family=socket.AF_INET, allow_broadcast=True)
+        transport.sendto(b"who is JellyfinServer?", ("255.255.255.255", 7359))
+        await asyncio.sleep(timeout)
+    except OSError as err:
+        _LOGGER.debug("looking for Jellyfin servers failed: %s", err)
+    finally:
+        if transport:
+            transport.close()
+    return sorted(found.values(), key=lambda s: s["name"].lower())
 
 
 def resume_ticks(item: dict[str, Any] | None) -> int:
@@ -130,6 +166,45 @@ class Jellyfin:
         # an exact name first, then one that starts with what was asked, then the server's own order
         items.sort(key=lambda i: (str(i.get("Name", "")).lower() != want, not str(i.get("Name", "")).lower().startswith(want)))
         return items
+
+    async def async_continue(self, limit: int = 24) -> dict[str, list[dict[str, Any]]]:
+        """What there is to carry on with: {"series": [episodes], "movies": [films]}.
+
+        Series come from Next Up, which is the episode to watch next of every series, newest first. Films come from Resume, the
+        ones that were started and not finished; an episode in Resume is already in Next Up, so only films are taken from it.
+        """
+        series, resume = await asyncio.gather(
+            self._get("/Shows/NextUp", userId=self.user_id, limit=limit, fields="UserData"),
+            self._get("/UserItems/Resume", userId=self.user_id, limit=limit, includeItemTypes="Movie", fields="UserData"),
+            return_exceptions=True,
+        )
+        out: dict[str, list[dict[str, Any]]] = {"series": [], "movies": []}
+        for key, got in (("series", series), ("movies", resume)):
+            if isinstance(got, BaseException):
+                if isinstance(got, JellyfinAuthError):
+                    raise got
+                _LOGGER.debug("Jellyfin did not answer for %s: %s", key, got)
+                continue
+            out[key] = [i for i in (got or {}).get("Items") or [] if i.get("Id")]
+        return out
+
+    async def async_item(self, item_id: str) -> dict[str, Any] | None:
+        """One item by its id, with where it was left."""
+        out = await self._get(f"/Items/{quote(item_id)}", userId=self.user_id, fields="UserData")
+        return out if isinstance(out, dict) and out.get("Id") else None
+
+    async def async_poster(self, item_id: str, height: int = 450) -> tuple[bytes | None, str]:
+        """The poster of an item, as bytes; images need no key, but going through the server keeps it out of the browser."""
+        url = f"{self.url}/Items/{quote(item_id)}/Images/Primary?maxHeight={int(height)}&quality=90"
+        try:
+            async with asyncio.timeout(TIMEOUT_S):
+                async with self._session.get(url, headers=self._headers) as resp:
+                    if resp.status != 200:
+                        return None, ""
+                    return await resp.read(), resp.headers.get("Content-Type", "image/jpeg")
+        except (TimeoutError, aiohttp.ClientError, OSError) as err:
+            _LOGGER.debug("no poster for %s: %s", item_id, err)
+            return None, ""
 
     async def async_next_up(self, series_id: str) -> dict[str, Any] | None:
         """The episode to watch next of a series (where you stopped, or the first one)."""

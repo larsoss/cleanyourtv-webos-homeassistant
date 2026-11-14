@@ -151,6 +151,11 @@
           "unreachable": "Niet bereikbaar"
         }
       }
+    },
+    "select": {
+      "continue_watching": {
+        "name": "Verder kijken"
+      }
     }
   },
   "exceptions": {
@@ -177,6 +182,9 @@
     },
     "no_episode": {
       "message": "Die aflevering van {title} bestaat niet."
+    },
+    "nothing_to_play": {
+      "message": "Geef een titel of een item-id om af te spelen."
     }
   },
   "services": {
@@ -299,6 +307,10 @@
         "resume": {
           "name": "Verder kijken",
           "description": "Begin waar je gebleven was. Uit begint hij bij het begin."
+        },
+        "item_id": {
+          "name": "Jellyfin item-id",
+          "description": "Speelt precies dit item af, in plaats van een titel te zoeken."
         }
       }
     }

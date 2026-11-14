@@ -5,7 +5,9 @@ The page inside the card asks Home Assistant over its WebSocket API:
   cleanyourtv/card    {entity_id}                -> {entry_id, secret, model, mac}: which TV, and the key for its pictures
   cleanyourtv/action  {entry_id, action: {t,..}} -> {ok, error}: a key, text, the pointer, an app, a channel, a power call
   cleanyourtv/list    {entry_id, kind}           -> the apps, the inputs or the Live TV channels, as the Phone remote's page reads them
-Pictures (channel logos, app icons) are <img> tags, which cannot carry Home Assistant's token: they are served at
+  cleanyourtv/library {entry_id}                 -> what there is to carry on watching: series and films, with their posters
+  cleanyourtv/play    {entry_id, item_id}       -> play one of those on the TV
+Pictures (channel logos, app icons, Jellyfin posters) are <img> tags, which cannot carry Home Assistant's token: they are served at
 /api/cleanyourtv/<entry_id>/... with the entry's own secret in ?t=, which only a signed-in user gets from cleanyourtv/card.
 """
 
@@ -46,6 +48,8 @@ async def async_setup_frontend(hass: HomeAssistant, version: str) -> None:
     websocket_api.async_register_command(hass, ws_action)
     websocket_api.async_register_command(hass, ws_list)
     websocket_api.async_register_command(hass, ws_tvs)
+    websocket_api.async_register_command(hass, ws_library)
+    websocket_api.async_register_command(hass, ws_play)
     hass.http.register_view(CytvPictureView())
 
 
@@ -126,6 +130,54 @@ async def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     connection.send_result(msg["id"], out)
 
 
+@websocket_api.websocket_command({vol.Required("type"): "cleanyourtv/library", vol.Required("entry_id"): str})
+@websocket_api.async_response
+async def ws_library(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """What there is to carry on watching. The card asks for it when it opens; the list itself is kept up to date in the background."""
+    entry = _entry(hass, msg["entry_id"])
+    if entry is None:
+        connection.send_error(msg["id"], "not_found", "unknown TV")
+        return
+    lib = entry.runtime_data.library
+    if lib is None:
+        connection.send_result(msg["id"], {"series": [], "movies": [], "error": "", "jellyfin": False})
+        return
+    if lib.updated is None and not lib.error:  # the card opened before the first read came in
+        await lib.async_refresh()
+    connection.send_result(
+        msg["id"],
+        {
+            "series": lib.series,
+            "movies": lib.movies,
+            "error": lib.error,
+            "jellyfin": True,
+            "updated": lib.updated.isoformat() if lib.updated else "",
+        },
+    )
+
+
+@websocket_api.websocket_command({vol.Required("type"): "cleanyourtv/play", vol.Required("entry_id"): str, vol.Required("item_id"): str})
+@websocket_api.async_response
+async def ws_play(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Play one item of that list on the TV: the card's posters are buttons."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    from .play import async_play
+
+    entry = _entry(hass, msg["entry_id"])
+    if entry is None:
+        connection.send_error(msg["id"], "not_found", "unknown TV")
+        return
+    try:
+        item = await async_play(hass, entry, item_id=msg["item_id"])
+    except HomeAssistantError as err:
+        connection.send_result(msg["id"], {"ok": False, "error": str(err)})
+        return
+    if entry.runtime_data.library:
+        entry.runtime_data.library.refresh_soon()
+    connection.send_result(msg["id"], {"ok": True, "error": "", "title": item.get("Name", "")})
+
+
 PANEL = "cleanyourtv-remote"  # /cleanyourtv-remote: the remote as a page of its own
 
 
@@ -161,9 +213,13 @@ def ws_tvs(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg:
 
 
 class CytvPictureView(HomeAssistantView):
-    """Channel logos and app icons for the card: /api/cleanyourtv/<entry_id>/api/logo/<n> and .../icon/<app id>, with ?t=<secret>."""
+    """Pictures for the card: /api/cleanyourtv/<entry_id>/api/logo/<n>, .../icon/<app id>, .../poster/<item id>, with ?t=<secret>.
 
-    url = "/api/cleanyourtv/{entry_id}/{kind:api/logo|icon}/{item}"
+    The posters come from the Jellyfin server through Home Assistant, so the server's address and key stay out of the browser and
+    the card also works from outside the house.
+    """
+
+    url = "/api/cleanyourtv/{entry_id}/{kind:api/logo|icon|poster}/{item}"
     name = "api:cleanyourtv:picture"
     requires_auth = False  # an <img> cannot send the token: the entry's secret in ?t= stands in for it
 
@@ -174,6 +230,16 @@ class CytvPictureView(HomeAssistantView):
         secret = entry.data.get(CONF_CARD_SECRET, "") if entry else ""
         if not entry or not secret or not hmac.compare_digest(given.encode(), secret.encode()):
             return web.Response(status=401)
+        if kind == "poster":
+            if not item.isalnum():
+                return web.Response(status=404)
+            from .play import jellyfin_of
+
+            jf = jellyfin_of(hass, entry)
+            body, ctype = await jf.async_poster(item) if jf else (None, "")
+            if body is None:
+                return web.Response(status=404)
+            return web.Response(body=body, content_type=ctype.split(";")[0], headers={"Cache-Control": "max-age=86400"})
         if kind == "icon":
             if not all(c.isalnum() or c in "._-" for c in item):
                 return web.Response(status=404)

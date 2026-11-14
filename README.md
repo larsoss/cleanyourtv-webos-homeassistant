@@ -103,6 +103,7 @@ close: auto   # a ✕ next to the power button: auto = only in a popup (browser_
 | **Media player** | State `playing` / `paused` / `on` / `idle` (screen off) / `off`. During Live TV, `media_channel` is the channel and `media_title` is the programme, with a progress bar and the channel logo. Volume, mute, play/pause, channel up/down, and source. |
 | **Remote** | `remote.send_command` with key names (`UP`, `ENTER`, `HOME`, `VOLUMEUP`, `RED`, `1`, …) and `text:…`, `launch:<app id>`, `live:<number>`. |
 | **Buttons** | Screen off, screen on, standby, restart, shut down (disabled by default). |
+| **Select** | Carry on watching: the series and films to pick up, straight from your Jellyfin server (when one is set up). |
 | **Sensor** | The power state. |
 
 **Useful attributes** on the media player:
@@ -182,6 +183,27 @@ data:
   resume: true   # the default; false starts at the beginning instead of where you stopped
 ```
 
+### Carry on watching, without writing anything
+
+Two things appear by themselves as soon as the server is set up, so there is no YAML to write:
+
+- **A "Watch" tab in the remote card** (and on the remote page): the episode to watch next of every series and the films you
+  started, as posters with how far you got. Tap one and it plays — the TV is turned on if it was off. The posters come through Home
+  Assistant, so the server's address and key stay out of the browser and the tab also works from outside the house.
+- **A "Carry on watching" dropdown** (`select.<your tv>_continue_watching`): the same list as one line each, for a dashboard, a
+  button or a voice command. Nothing stays chosen, so the same title can be picked again.
+
+```yaml
+type: entities
+title: TV
+entities:
+  - entity: select.lg_tv_continue_watching
+    name: Carry on watching
+```
+
+The dropdown carries the whole list in its attributes (`series`, `movies`, `items` with title, episode, how far it got and the
+poster's id), for a template or a card of your own.
+
 ### How it works
 
 The action does not drive the app on the TV. It asks the Jellyfin *server* to play something on the client the TV has open, the
@@ -194,8 +216,11 @@ same way the cast button in Jellyfin's web page does:
    up to 25 seconds for it to sign in.
 3. `POST /Sessions/<id>/Playing?playCommand=PlayNow` starts it, with the position you had reached.
 
-So nothing has to be installed on the TV beyond a Jellyfin client, and **the TV has to be on**: for an automation, turn the TV on
-first (`remote.turn_on`) and give it a few seconds.
+What there is to carry on with is read every five minutes (and again shortly after something was played): `/Shows/NextUp` for the
+series and `/UserItems/Resume` for the films.
+
+So nothing has to be installed on the TV beyond a Jellyfin client. A TV that is off is woken first (Wake-on-LAN), so picking
+something to watch does not need the remote as well.
 
 ### Which Jellyfin client
 
@@ -215,7 +240,8 @@ own? Open it on the TV, then press the cast button in Jellyfin on your phone: if
 
 **Settings › Devices & services › CleanYourTV › ⚙️ › Jellyfin**:
 
-- **address** of the server, e.g. `http://192.168.1.10:8096` (a `/web/index.html` at the end is dropped by itself)
+- **address** of the server, filled in for you: the one Home Assistant's own Jellyfin integration uses, or the server that answers
+  on the network (Jellyfin's own clients find a server the same way). Otherwise type it, e.g. `http://192.168.1.10:8096`.
 - **API key** from **Jellyfin › Dashboard › API keys**. Your password is never asked; the key stays in Home Assistant and is
   checked while you type it in.
 - **user**, whose library is searched and whose watched position is used. With one user on the server it is filled in by itself.
