@@ -66,6 +66,9 @@
         if (!head || !cv || !tabs || !head.offsetHeight) return 0;
         // while the rows are spread (fill) the buttons' block is as high as the room: the height measured before counts
         if (d.documentElement.classList.contains('fill')) return this._nat || 0;
+        // another tab is in front, so the Remote's buttons measure nothing: the card keeps the height the Remote needed instead of
+        // shrinking to its top and tab bars (the Apps, Live and Watch lists then have the room to scroll in)
+        if (!cv.offsetHeight) return this._nat || 0;
         const m = parseFloat(getComputedStyle(cv).marginTop) || 0;
         return (this._nat = Math.ceil(head.offsetHeight + cv.offsetHeight + m + 8 + tabs.offsetHeight));
       } catch (e) {

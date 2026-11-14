@@ -102,6 +102,8 @@ function build(lang) {
   html = html.replace(
     '</style>',
     'body,.tabbar{background:transparent}#kb>.cv{margin:4px 0 auto}#tp>.cv{margin:4px 0 auto}#cyx{flex:none}' +
+      // five tabs in the bar (the Watch tab came along): a long name is cut instead of running into the next one
+      '.tabbar{gap:2px}.tab{min-width:0;padding:0 2px}.tab>span,.tab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       // the frame is not the phone's screen: no room for a status bar or a home indicator (iOS gives the frame the screen's safe areas)
       '.head{padding-top:12px}.tabbar{padding-bottom:4px}' +
       // a remote with more room than it needs (the remote page on a phone): its rows spread over the room, the tab bar at the bottom
