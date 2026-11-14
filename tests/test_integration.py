@@ -97,7 +97,7 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     await hass.services.async_call("media_player", "media_pause", {"entity_id": MP}, blocking=True)
     await addon.wait_for(lambda e: e == {"ev": "key", "k": "PAUSE"})
     await until(lambda: st(hass, MP).attributes.get("source_list"))
-    assert st(hass, MP).attributes["source_list"] == ["HDMI 1", "Netflix", "YouTube"]
+    assert st(hass, MP).attributes["source_list"] == ["HDMI 1", "Litefin", "Netflix", "YouTube"]
     await hass.services.async_call("media_player", "select_source", {"entity_id": MP, "source": "HDMI 1"}, blocking=True)
     await addon.wait_for(lambda e: e.get("ev") == "launch" and e["body"] == {"id": "com.webos.app.hdmi1"})
     await hass.services.async_call("remote", "send_command", {"entity_id": RM, "command": ["HOME", "text:abc"]}, blocking=True)
@@ -321,9 +321,12 @@ async def test_play_a_title(hass: HomeAssistant, addon) -> None:
         await hass.async_block_till_done()
         assert entry.options["jellyfin_url"] == jf.url and entry.options["jellyfin_user"] == "u1"
 
-        # a series: the app is opened on the TV, and once it has signed in the episode to watch next plays on that session
+        await until(lambda: any(a["id"] == "org.litefin.app" for a in entry.runtime_data.apps))  # the TV's app list is in
+
+        # a series: the app is opened on the TV, and once it has signed in the episode to watch next plays on that session.
+        # the official app is chosen but is not on this TV, so the Litefin that is there is opened instead
         async def sign_in_when_opened() -> None:
-            await addon.wait_for(lambda e: e.get("ev") == "launch" and e["body"].get("id") == "org.jellyfin.webos", timeout=10)
+            await addon.wait_for(lambda e: e.get("ev") == "launch" and e["body"].get("id") == "org.litefin.app", timeout=10)
             jf.app_open = True
 
         signer = asyncio.create_task(sign_in_when_opened())

@@ -93,13 +93,13 @@
           "jellyfin_url": "Adres van de server",
           "jellyfin_key": "API-sleutel",
           "jellyfin_user": "Gebruikersnaam",
-          "jellyfin_app": "De Jellyfin-app op de tv"
+          "jellyfin_app": "Jellyfin-client op de tv"
         },
         "data_description": {
           "jellyfin_url": "Bijvoorbeeld http://192.168.1.10:8096.",
           "jellyfin_key": "Jellyfin > Dashboard > API-sleutels > +.",
           "jellyfin_user": "Wiens bibliotheek wordt doorzocht, en wiens \"verder kijken\" wordt gebruikt. Laat leeg als de server één gebruiker heeft.",
-          "jellyfin_app": "De app die op de tv wordt geopend. org.jellyfin.webos is de officiële app."
+          "jellyfin_app": "De client die op de tv wordt geopend; de lijst laat zien welke er op jouw tv staan. Staat de gekozen client er niet op, dan wordt een andere die er wél staat geopend. Een eigen app-id mag je ook typen."
         }
       }
     },

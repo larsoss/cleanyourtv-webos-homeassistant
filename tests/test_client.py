@@ -98,7 +98,7 @@ async def test_pair_follow_and_act() -> None:
             with pytest.raises(c.CytvError):
                 await tv.async_key("SELFDESTRUCT")
 
-            assert {a["id"] for a in await tv.async_apps()} == {"netflix", "youtube.leanback.v4"}
+            assert {a["id"] for a in await tv.async_apps()} == {"netflix", "youtube.leanback.v4", "org.litefin.app"}
             assert (await tv.async_inputs())[0]["appId"] == "com.webos.app.hdmi1"
             chans = await tv.async_channels()
             assert [ch["num"] for ch in chans] == [1, 24]

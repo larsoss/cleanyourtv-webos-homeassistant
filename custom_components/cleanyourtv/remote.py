@@ -8,6 +8,7 @@ remote.send_command takes key names (UP, ENTER, HOME, VOLUMEUP, RED, 1, ...) and
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Iterable
 from typing import Any
 
@@ -22,9 +23,11 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import CytvConfigEntry, refresh_lists
 from .client import KEYS, NOTIFY_PICTURE_MAX, POWER_ACTIONS, CytvError
-from .const import CONF_JF_APP, CONF_JF_KEY, CONF_JF_URL, CONF_JF_USER, DEFAULT_JF_APP, DOMAIN, PLAY_WAIT_S
+from .const import CONF_JF_APP, CONF_JF_KEY, CONF_JF_URL, CONF_JF_USER, DEFAULT_JF_APP, DOMAIN, JF_CLIENTS, PLAY_WAIT_S
 from .entity import CytvEntity
 from .media_player import turn_on
+
+_LOGGER = logging.getLogger(__name__)
 
 POSITIONS = [f"{v}-{h}" for v in ("top", "middle", "bottom") for h in ("left", "center", "right")]
 
@@ -198,7 +201,7 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
         try:
             item = await self._find(jf, title, season, episode)
             ticks = resume_ticks(item) if resume else 0
-            session = await self._tv_session(jf, o.get(CONF_JF_APP) or DEFAULT_JF_APP)
+            session = await self._tv_session(jf, self._play_app(o.get(CONF_JF_APP) or DEFAULT_JF_APP))
             await jf.async_play(session["Id"], item["Id"], ticks)
         except JellyfinAuthError as err:
             raise HomeAssistantError(str(err)) from err
@@ -222,6 +225,17 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
         if not got:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_episode", translation_placeholders={"title": name})
         return got
+
+    def _play_app(self, app: str) -> str:
+        """The Jellyfin client to open: the chosen one, or another one that is on the TV when the chosen one is not installed."""
+        ids = {a["id"] for a in self._data.apps if a.get("id")}
+        if not ids or app in ids:  # an empty list means the TV has not been read yet: just use what was chosen
+            return app
+        other = next((i for i in JF_CLIENTS if i in ids), "")
+        if not other:
+            return app
+        _LOGGER.info("%s is not installed on the TV, opening %s (%s) instead", app, JF_CLIENTS[other], other)
+        return other
 
     async def _tv_session(self, jf: Any, app: str) -> dict[str, Any]:
         """The Jellyfin app on the TV, opened first when it is not in front: a session takes a moment to sign in."""

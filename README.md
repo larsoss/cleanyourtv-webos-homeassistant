@@ -168,23 +168,60 @@ Instead of `camera`, `image_url` takes a picture at an address: one of Home Assi
 
 ## Put a title on (Jellyfin)
 
-`cleanyourtv.play` finds a series or film on your own Jellyfin server, opens the Jellyfin app on the TV and plays it there. A series
-starts where you left off.
-
-Set it up once: **Settings › Devices & services › CleanYourTV › ⚙️ › Jellyfin**, with the server's address and an API key from
-**Jellyfin › Dashboard › API keys**. Your password is never asked, and the key stays in Home Assistant.
+`cleanyourtv.play` plays a series or film from your own Jellyfin server on the TV. A series starts at the episode you have to watch
+next, where you stopped watching it.
 
 ```yaml
 action: cleanyourtv.play
 target:
   entity_id: remote.lg_tv_remote
 data:
-  title: Reacher        # season: 1 and episode: 3 pick one; without them, the episode to watch next
-  resume: true          # off starts at the beginning instead of where you stopped
+  title: Reacher
+  season: 1      # a season and an episode pick that one; without them, the episode to watch next
+  episode: 3
+  resume: true   # the default; false starts at the beginning instead of where you stopped
 ```
 
-Any Jellyfin client the server can play on works, not just the official app — Litefin and Moonfin report that they take media
-control. Which one is opened is the `jellyfin_app` option (`org.jellyfin.webos`, `org.litefin.app`, `org.moonfin.webos`).
+### How it works
+
+The action does not drive the app on the TV. It asks the Jellyfin *server* to play something on the client the TV has open, the
+same way the cast button in Jellyfin's web page does:
+
+1. The title is looked up in your library (`/Items?searchTerm=…`), the closest name first. For a series it then asks the server
+   which episode is next (`/Shows/NextUp`), or looks up the season and episode you asked for.
+2. It looks for the TV among the clients signed in to the server (`/Sessions`). The TV's own address decides, so a phone that is
+   signed in as well is never picked by mistake. If the TV is not there, the Jellyfin client is opened on it and the action waits
+   up to 25 seconds for it to sign in.
+3. `POST /Sessions/<id>/Playing?playCommand=PlayNow` starts it, with the position you had reached.
+
+So nothing has to be installed on the TV beyond a Jellyfin client, and **the TV has to be on**: for an automation, turn the TV on
+first (`remote.turn_on`) and give it a few seconds.
+
+### Which Jellyfin client
+
+Any client works that tells the server it takes media control. These are known, and the one to open is the **Jellyfin client**
+option (the list shows which of them are on your TV; any other app id can be typed in):
+
+| Client | App id | |
+|---|---|---|
+| Jellyfin for webOS (official) | `org.jellyfin.webos` | works |
+| [Litefin](https://repo.webosbrew.org/apps/org.litefin.app/) | `org.litefin.app` | works |
+| [Moonfin](https://github.com/Moonfin-Client/Smart-TV) | `org.moonfin.webos` | reports media control; not tested here |
+
+If the client you chose is not installed on the TV, one of the others that is gets opened instead. Not sure about a client of your
+own? Open it on the TV, then press the cast button in Jellyfin on your phone: if the TV is in that list, this action can play on it.
+
+### Setting it up
+
+**Settings › Devices & services › CleanYourTV › ⚙️ › Jellyfin**:
+
+- **address** of the server, e.g. `http://192.168.1.10:8096` (a `/web/index.html` at the end is dropped by itself)
+- **API key** from **Jellyfin › Dashboard › API keys**. Your password is never asked; the key stays in Home Assistant and is
+  checked while you type it in.
+- **user**, whose library is searched and whose watched position is used. With one user on the server it is filled in by itself.
+- **Jellyfin client** to open, see above.
+
+Leave the address and the key empty to switch the action off again.
 
 Only Jellyfin for now. What it takes to do the same for Plex, Netflix and the other apps is written down in
 [docs/play-a-show.md](docs/play-a-show.md).

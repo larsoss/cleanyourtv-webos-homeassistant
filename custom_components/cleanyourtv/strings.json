@@ -93,13 +93,13 @@
           "jellyfin_url": "Address of the server",
           "jellyfin_key": "API key",
           "jellyfin_user": "User name",
-          "jellyfin_app": "The Jellyfin app on the TV"
+          "jellyfin_app": "Jellyfin client on the TV"
         },
         "data_description": {
           "jellyfin_url": "For example http://192.168.1.10:8096.",
           "jellyfin_key": "Jellyfin > Dashboard > API keys > +.",
           "jellyfin_user": "Whose library is searched, and whose \"watch next\" is used. Leave it empty when the server has one user.",
-          "jellyfin_app": "The app id that is opened on the TV. org.jellyfin.webos is the official app."
+          "jellyfin_app": "The client that is opened on the TV; the list shows which of them are on your TV. If the one you chose is not there, another one that is gets opened. Any other app id can be typed in."
         }
       }
     },

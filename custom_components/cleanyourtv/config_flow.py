@@ -30,6 +30,7 @@ from .const import (
     DEFAULT_DEVICE_NAME,
     DEFAULT_JF_APP,
     DOMAIN,
+    JF_CLIENTS,
 )
 
 PAIR_ERRORS = ("not_waiting", "too_many_tries", "too_many_devices")
@@ -230,10 +231,25 @@ class CytvOptionsFlow(OptionsFlow):
                 vol.Optional(CONF_JF_URL, default=o.get(CONF_JF_URL, "")): str,
                 vol.Optional(CONF_JF_KEY, default=o.get(CONF_JF_KEY, "")): str,
                 vol.Optional(CONF_JF_USER, default=""): str,
-                vol.Optional(CONF_JF_APP, default=o.get(CONF_JF_APP, DEFAULT_JF_APP)): str,
+                vol.Optional(CONF_JF_APP, default=o.get(CONF_JF_APP, DEFAULT_JF_APP)): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=self._jellyfin_apps(), custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
+                    )
+                ),
             }
         )
         return self.async_show_form(step_id="jellyfin", data_schema=schema, errors=errors, description_placeholders=placeholders)
+
+    def _jellyfin_apps(self) -> list[selector.SelectOptionDict]:
+        """The Jellyfin clients to choose from: the ones on this TV first, named as the TV names them; any other id can be typed."""
+        data = getattr(self.config_entry, "runtime_data", None)
+        installed = {a["id"]: a.get("title") or a["id"] for a in (data.apps if data else []) if a.get("id")}
+        out = [selector.SelectOptionDict(value=i, label=f"{installed[i]} ({i})") for i in JF_CLIENTS if i in installed]
+        out += [selector.SelectOptionDict(value=i, label=f"{n} ({i}) - not installed") for i, n in JF_CLIENTS.items() if i not in installed]
+        chosen = self.config_entry.options.get(CONF_JF_APP, "")
+        if chosen and chosen not in JF_CLIENTS:
+            out.append(selector.SelectOptionDict(value=chosen, label=chosen))
+        return out
 
     async def async_step_dashboard(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Add a view "TV remote" with the remote card to a dashboard: nothing on the dashboard is changed or removed."""

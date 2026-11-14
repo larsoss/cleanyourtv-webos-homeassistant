@@ -19,6 +19,12 @@ LISTS_REFRESH_S = 600
 HOME_APP = "com.webos.app.home"
 
 DEFAULT_JF_APP = "org.jellyfin.webos"
+# the Jellyfin clients for webOS that take a play command from the server, the official one first. Any other id can be typed in.
+JF_CLIENTS = {
+    "org.jellyfin.webos": "Jellyfin",
+    "org.litefin.app": "Litefin",
+    "org.moonfin.webos": "Moonfin",
+}
 PLAY_WAIT_S = 25  # how long the Jellyfin app on the TV gets to sign in after it is opened
 
 MEDIA_TYPE_APP = "app"
