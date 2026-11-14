@@ -1,0 +1,175 @@
+"""The little of Jellyfin's API that "put on <title>" needs (https://api.jellyfin.org).
+
+The server is asked with an API key (Jellyfin > Dashboard > API keys), which goes in the Authorization header. An API key belongs to
+the server, not to a person, so every call that is about what someone watched carries the user id as well.
+
+  GET  /Users                                          the people on the server, to pick whose library is searched
+  GET  /Items?searchTerm=…&userId=…                    find a series or a film by its name
+  GET  /Shows/NextUp?userId=…&seriesId=…               the episode to watch next of a series
+  GET  /Shows/<id>/Episodes?userId=…&season=…          an episode by its number, and the first unwatched one
+  GET  /Sessions                                       what is signed in; the TV's app is one of these while it is open
+  POST /Sessions/<id>/Playing?playCommand=PlayNow      play it there
+
+This module has no Home Assistant imports, so it can be tested on its own.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+from urllib.parse import quote, urlsplit, urlunsplit
+
+import aiohttp
+
+_LOGGER = logging.getLogger(__name__)
+
+TIMEOUT_S = 15
+SEARCH_KINDS = "Series,Movie"
+# a last resort when the address and the name do not tell: clients that only exist on a TV ("jellyfin" is in every client's name)
+TV_CLIENTS = ("webos", "litefin", "moonfin", "lg ")
+
+
+def _ip_of(endpoint: Any) -> str:
+    """The address out of "192.168.1.10:54321", "[::1]:5", "::ffff:127.0.0.1"."""
+    t = str(endpoint or "").strip().lower()
+    if t.startswith("["):
+        t = t[1:].split("]")[0]
+    elif t.count(":") == 1:
+        t = t.split(":")[0]
+    return t.removeprefix("::ffff:")
+
+
+class JellyfinError(Exception):
+    """The server did not answer, or refused."""
+
+
+class JellyfinAuthError(JellyfinError):
+    """The API key is not (or no longer) accepted."""
+
+
+def clean_url(url: str) -> str:
+    """http://host:8096 from what someone typed (a trailing slash or /web/index.html is dropped)."""
+    u = (url or "").strip().rstrip("/")
+    if not u:
+        return ""
+    if "://" not in u:
+        u = "http://" + u
+    p = urlsplit(u)
+    path = p.path
+    for tail in ("/web/index.html", "/web", "/index.html"):
+        path = path.removesuffix(tail)
+    return urlunsplit((p.scheme, p.netloc, path.rstrip("/"), "", ""))
+
+
+class Jellyfin:
+    """One Jellyfin server, asked with an API key."""
+
+    def __init__(self, session: aiohttp.ClientSession, url: str, key: str, user_id: str = "") -> None:
+        self._session = session
+        self.url = clean_url(url)
+        self._key = key
+        self.user_id = user_id
+
+    @property
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f'MediaBrowser Token="{self._key}"', "Accept": "application/json"}
+
+    async def _get(self, path: str, **params: Any) -> Any:
+        return await self._call("GET", path, params)
+
+    async def _call(self, method: str, path: str, params: dict[str, Any] | None = None) -> Any:
+        q = "&".join(f"{k}={quote(str(v))}" for k, v in (params or {}).items() if v not in (None, ""))
+        url = f"{self.url}{path}" + (("?" if "?" not in path else "&") + q if q else "")
+        try:
+            async with asyncio.timeout(TIMEOUT_S):
+                async with self._session.request(method, url, headers=self._headers) as resp:
+                    if resp.status in (401, 403):
+                        raise JellyfinAuthError("Jellyfin does not accept the API key")
+                    if resp.status >= 400:
+                        raise JellyfinError(f"Jellyfin answered {resp.status}")
+                    if resp.status == 204:
+                        return {}
+                    text = await resp.text()
+                    if not text.strip():
+                        return {}
+                    return await resp.json(content_type=None)
+        except JellyfinError:
+            raise
+        except (TimeoutError, aiohttp.ClientError, OSError, ValueError) as err:
+            raise JellyfinError(f"Jellyfin did not answer: {err}") from err
+
+    async def async_users(self) -> list[dict[str, str]]:
+        """Everyone on the server: [{id, name}]."""
+        out = await self._get("/Users")
+        return [{"id": u["Id"], "name": u.get("Name") or u["Id"]} for u in out or [] if u.get("Id")]
+
+    async def async_search(self, title: str, limit: int = 8) -> list[dict[str, Any]]:
+        """Series and films whose name holds the words, the closest first."""
+        out = await self._get(
+            "/Items",
+            searchTerm=title,
+            userId=self.user_id,
+            includeItemTypes=SEARCH_KINDS,
+            recursive="true",
+            limit=limit,
+            fields="ProviderIds",
+        )
+        items = [i for i in (out or {}).get("Items") or [] if i.get("Id")]
+        want = title.strip().lower()
+        # an exact name first, then one that starts with what was asked, then the server's own order
+        items.sort(key=lambda i: (str(i.get("Name", "")).lower() != want, not str(i.get("Name", "")).lower().startswith(want)))
+        return items
+
+    async def async_next_up(self, series_id: str) -> dict[str, Any] | None:
+        """The episode to watch next of a series (where you stopped, or the first one)."""
+        out = await self._get("/Shows/NextUp", userId=self.user_id, seriesId=series_id, limit=1)
+        items = (out or {}).get("Items") or []
+        if items:
+            return items[0]
+        out = await self._get(f"/Shows/{series_id}/Episodes", userId=self.user_id, limit=1, startIndex=0)
+        items = (out or {}).get("Items") or []
+        return items[0] if items else None
+
+    async def async_episode(self, series_id: str, season: int | None, episode: int | None) -> dict[str, Any] | None:
+        """One episode by its numbers; without an episode number the first of that season."""
+        out = await self._get(f"/Shows/{series_id}/Episodes", userId=self.user_id, season=season, fields="")
+        items = (out or {}).get("Items") or []
+        if episode is None:
+            return items[0] if items else None
+        for i in items:
+            if i.get("IndexNumber") == episode:
+                return i
+        return None
+
+    async def async_sessions(self) -> list[dict[str, Any]]:
+        """What is signed in now."""
+        out = await self._get("/Sessions")
+        return list(out or [])
+
+    def tv_session(self, sessions: list[dict[str, Any]], device: str = "", host: str = "") -> dict[str, Any] | None:
+        """The session of the Jellyfin app on the TV, and not of a phone that happens to be signed in.
+
+        Jellyfin says where a session connects from, so the TV's own address is the surest sign; then the TV's name in the device,
+        then a client that only runs on a TV. A session that does not take commands is never one of these.
+        """
+        able = [s for s in sessions if s.get("SupportsRemoteControl") and s.get("Id")]
+        ip = (host or "").strip().lower()
+        if ip:
+            for s in able:
+                if _ip_of(s.get("RemoteEndPoint")) == ip:
+                    return s
+        name = (device or "").strip().lower()
+        if name:
+            for s in able:
+                if name in str(s.get("DeviceName", "")).lower():
+                    return s
+        for s in able:
+            text = (str(s.get("Client", "")) + " " + str(s.get("DeviceName", "")) + " ").lower()
+            if any(w in text for w in TV_CLIENTS):
+                return s
+        return None
+
+    async def async_play(self, session_id: str, item_id: str) -> None:
+        """Play it on that session, from the start or where it was left."""
+        await self._call("POST", f"/Sessions/{session_id}/Playing", {"playCommand": "PlayNow", "itemIds": item_id})

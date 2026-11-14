@@ -13,6 +13,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components.remote import ATTR_DELAY_SECS, ATTR_NUM_REPEATS, DEFAULT_DELAY_SECS, RemoteEntity
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
@@ -21,7 +22,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import CytvConfigEntry, refresh_lists
 from .client import KEYS, NOTIFY_PICTURE_MAX, POWER_ACTIONS, CytvError
-from .const import DOMAIN
+from .const import CONF_JF_APP, CONF_JF_KEY, CONF_JF_URL, CONF_JF_USER, DEFAULT_JF_APP, DOMAIN, PLAY_WAIT_S
 from .entity import CytvEntity
 from .media_player import turn_on
 
@@ -61,6 +62,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry, add: Ad
             vol.Optional("position", default="top-right"): vol.In(POSITIONS),
         },
         "async_show_notification",
+    )
+    platform.async_register_entity_service(
+        "play",
+        {
+            vol.Required("title"): vol.All(cv.string, vol.Length(min=1, max=120)),
+            vol.Optional("season"): vol.All(vol.Coerce(int), vol.Range(0, 99)),
+            vol.Optional("episode"): vol.All(vol.Coerce(int), vol.Range(0, 999)),
+        },
+        "async_play_title",
     )
 
 
@@ -173,6 +183,58 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
         if image and len(image) > NOTIFY_PICTURE_MAX:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="picture_too_large")
         await self._do(self._client.async_notify(title, message, seconds, position, image, image_type))
+
+    async def async_play_title(self, title: str, season: int | None = None, episode: int | None = None) -> None:
+        """Put a series or film on: find it on the Jellyfin server, open the app on the TV and play it there."""
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+        from .jellyfin import Jellyfin, JellyfinAuthError, JellyfinError
+
+        o = self._entry.options
+        if not (o.get(CONF_JF_URL) and o.get(CONF_JF_KEY)):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_jellyfin")
+        jf = Jellyfin(async_get_clientsession(self.hass), o[CONF_JF_URL], o[CONF_JF_KEY], o.get(CONF_JF_USER, ""))
+        try:
+            item = await self._find(jf, title, season, episode)
+            session = await self._tv_session(jf, o.get(CONF_JF_APP) or DEFAULT_JF_APP)
+            await jf.async_play(session["Id"], item["Id"])
+        except JellyfinAuthError as err:
+            raise HomeAssistantError(str(err)) from err
+        except JellyfinError as err:
+            raise HomeAssistantError(str(err)) from err
+
+    async def _find(self, jf: Any, title: str, season: int | None, episode: int | None) -> dict[str, Any]:
+        """The film, or the episode of the series: the one asked for, else the one to watch next."""
+        found = await jf.async_search(title)
+        if not found:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="not_found", translation_placeholders={"title": title})
+        item = found[0]
+        if item.get("Type") != "Series":
+            return item
+        name = str(item.get("Name") or title)
+        got = (
+            await jf.async_episode(item["Id"], season, episode)
+            if season is not None or episode is not None
+            else await jf.async_next_up(item["Id"])
+        )
+        if not got:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_episode", translation_placeholders={"title": name})
+        return got
+
+    async def _tv_session(self, jf: Any, app: str) -> dict[str, Any]:
+        """The Jellyfin app on the TV, opened first when it is not in front: a session takes a moment to sign in."""
+        model, host = self._client.model or "", self._entry.data.get(CONF_HOST, "")
+        session = jf.tv_session(await jf.async_sessions(), model, host)
+        if session:
+            return session
+        await self._do(self._client.async_action("launch", id=app))
+        end = self.hass.loop.time() + PLAY_WAIT_S
+        while self.hass.loop.time() < end:
+            await asyncio.sleep(2)
+            session = jf.tv_session(await jf.async_sessions(), model, host)
+            if session:
+                return session
+        raise HomeAssistantError(f"the Jellyfin app on the TV did not sign in to the server within {PLAY_WAIT_S} seconds")
 
     async def _fetch_picture(self, url: str) -> tuple[bytes, str]:
         """A picture from an address: one of Home Assistant itself (/api/..., /local/...) or of the network."""

@@ -166,6 +166,25 @@ mode: single
 
 Instead of `camera`, `image_url` takes a picture at an address: one of Home Assistant itself works too (`/local/...`). Without a picture, the card is just text. Needs the add-on on the TV at 0.3.0 or newer.
 
+## Put a title on (Jellyfin)
+
+`cleanyourtv.play` finds a series or film on your own Jellyfin server, opens the Jellyfin app on the TV and plays it there. A series
+starts where you left off.
+
+Set it up once: **Settings › Devices & services › CleanYourTV › ⚙️ › Jellyfin**, with the server's address and an API key from
+**Jellyfin › Dashboard › API keys**. Your password is never asked, and the key stays in Home Assistant.
+
+```yaml
+action: cleanyourtv.play
+target:
+  entity_id: remote.lg_tv_remote
+data:
+  title: Reacher        # season: 1 and episode: 3 pick one; without them, the episode to watch next
+```
+
+Only Jellyfin for now. What it takes to do the same for Plex, Netflix and the other apps is written down in
+[docs/play-a-show.md](docs/play-a-show.md).
+
 ## Problems?
 
 | You see | Do this |

@@ -41,6 +41,9 @@
     },
     "show_notification": {
       "service": "mdi:message-image"
+    },
+    "play": {
+      "service": "mdi:play-box-multiple"
     }
   }
 }

@@ -287,3 +287,61 @@ async def test_remote_card_backend(hass: HomeAssistant, addon, hass_ws_client, h
     await ws.send_json({"id": 11, "type": "get_panels"})
     assert (await ws.receive_json())["result"]["cleanyourtv-remote"]["title"] is None
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_play_a_title(hass: HomeAssistant, addon) -> None:
+    """Put a title on: the options take the server, the action finds it, opens the app on the TV and plays it there."""
+    from .jellyfin_fake import JellyfinFake
+
+    jf = await JellyfinFake().start()
+    try:
+        await addon.open_pairing()
+        r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        r = await hass.config_entries.flow.async_configure(
+            r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_DEVICE_NAME: "HA"}
+        )
+        assert r["type"] is FlowResultType.CREATE_ENTRY
+        entry = r["result"]
+        await hass.async_block_till_done()
+
+        # without a server the action says so
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher"}, blocking=True)
+
+        # the options: a wrong key is refused, the right one stores the user the server names
+        r = await hass.config_entries.options.async_init(entry.entry_id)
+        r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "jellyfin"})
+        assert r["step_id"] == "jellyfin"
+        r = await hass.config_entries.options.async_configure(r["flow_id"], {"jellyfin_url": jf.url, "jellyfin_key": "wrong"})
+        assert r["errors"] == {"base": "jellyfin_key"}
+        r = await hass.config_entries.options.async_configure(
+            r["flow_id"], {"jellyfin_url": jf.url + "/web/index.html", "jellyfin_key": jf.key, "jellyfin_app": "org.jellyfin.webos"}
+        )
+        assert r["type"] is FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+        assert entry.options["jellyfin_url"] == jf.url and entry.options["jellyfin_user"] == "u1"
+
+        # a series: the app is opened on the TV, and once it has signed in the episode to watch next plays on that session
+        async def sign_in_when_opened() -> None:
+            await addon.wait_for(lambda e: e.get("ev") == "launch" and e["body"].get("id") == "org.jellyfin.webos", timeout=10)
+            jf.app_open = True
+
+        signer = asyncio.create_task(sign_in_when_opened())
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "reacher"}, blocking=True)
+        await signer
+        assert jf.played == [("tv", "e2")]
+
+        # a film plays straight away, and a season and episode pick that one
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Heat"}, blocking=True)
+        assert jf.played[-1] == ("tv", "m1")
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "season": 1, "episode": 1}, blocking=True)
+        assert jf.played[-1] == ("tv", "e1")
+
+        # a title the server does not have, and an episode that is not there
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Nothing"}, blocking=True)
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "season": 9}, blocking=True)
+        assert await hass.config_entries.async_unload(entry.entry_id)
+    finally:
+        await jf.stop()

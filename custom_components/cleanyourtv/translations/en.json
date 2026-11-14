@@ -64,7 +64,8 @@
         "title": "CleanYourTV",
         "menu_options": {
           "settings": "Settings",
-          "dashboard": "Put the remote on a dashboard"
+          "dashboard": "Put the remote on a dashboard",
+          "jellyfin": "Jellyfin (put a title on)"
         }
       },
       "settings": {
@@ -84,6 +85,22 @@
         "data": {
           "dashboard": "Dashboard"
         }
+      },
+      "jellyfin": {
+        "title": "Jellyfin",
+        "description": "The server the action \"Put a title on\" asks for a series or film. Leave the address and the key empty to switch the action off. The key comes from Jellyfin > Dashboard > API keys; your password is never asked.",
+        "data": {
+          "jellyfin_url": "Address of the server",
+          "jellyfin_key": "API key",
+          "jellyfin_user": "User name",
+          "jellyfin_app": "The Jellyfin app on the TV"
+        },
+        "data_description": {
+          "jellyfin_url": "For example http://192.168.1.10:8096.",
+          "jellyfin_key": "Jellyfin > Dashboard > API keys > +.",
+          "jellyfin_user": "Whose library is searched, and whose \"watch next\" is used. Leave it empty when the server has one user.",
+          "jellyfin_app": "The app id that is opened on the TV. org.jellyfin.webos is the official app."
+        }
       }
     },
     "abort": {
@@ -91,7 +108,10 @@
       "no_dashboard": "There is no dashboard made in the UI yet. Make one in Settings > Dashboards first (the generated Overview cannot be changed from here)."
     },
     "error": {
-      "dashboard_failed": "That dashboard cannot be changed from here (made in YAML?)."
+      "dashboard_failed": "That dashboard cannot be changed from here (made in YAML?).",
+      "jellyfin_key": "Jellyfin does not accept that API key.",
+      "jellyfin_connect": "The server did not answer: {message}",
+      "jellyfin_user": "No user by that name. The server has: {message}"
     }
   },
   "entity": {
@@ -148,6 +168,15 @@
     },
     "picture_too_large": {
       "message": "The picture is larger than 6 MB."
+    },
+    "no_jellyfin": {
+      "message": "No Jellyfin server is set up. Settings > Devices & services > CleanYourTV > ⚙️ > Jellyfin."
+    },
+    "not_found": {
+      "message": "Jellyfin has nothing called \"{title}\"."
+    },
+    "no_episode": {
+      "message": "No such episode of {title}."
     }
   },
   "services": {
@@ -248,6 +277,24 @@
         "position": {
           "name": "Position",
           "description": "Where on the screen the card is."
+        }
+      }
+    },
+    "play": {
+      "name": "Put a title on",
+      "description": "Finds a series or film on your Jellyfin server, opens the Jellyfin app on the TV and plays it there. Without a season or episode a series starts where you left off.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "The name of the series or film, as Jellyfin knows it."
+        },
+        "season": {
+          "name": "Season",
+          "description": "Only for a series."
+        },
+        "episode": {
+          "name": "Episode",
+          "description": "Only for a series. Without it, the first episode of that season."
         }
       }
     }
