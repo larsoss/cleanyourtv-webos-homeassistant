@@ -34,6 +34,7 @@
     token: B.secret,
     lang: (B.lang && B.lang()) || 'en',
     list: function () { return B.library(); },
+    series: function (id, season) { return B.series(id, season); },
     play: function (id) { return B.play(id); }
   };
   window.CYTV_PIC = B.pic; /* pictures: /api/cleanyourtv/<entry>/... (the build puts it in front of the page's own paths) */

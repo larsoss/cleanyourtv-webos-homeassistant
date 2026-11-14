@@ -377,6 +377,18 @@ async def test_play_a_title(hass: HomeAssistant, addon, hass_ws_client, hass_cli
         await ws.send_json({"id": 3, "type": "cleanyourtv/play", "entry_id": entry.entry_id, "item_id": "m1"})
         assert (await ws.receive_json())["result"]["ok"] is True
         assert jf.played[-1] == ("tv", "m1", 0)
+        await ws.send_json({"id": 4, "type": "cleanyourtv/series", "entry_id": entry.entry_id, "series_id": "s1"})
+        got = (await ws.receive_json())["result"]
+        assert [s["id"] for s in got["seasons"]] == ["se1", "se2"]
+        assert got["season"] == "se1"  # the season of the episode to watch next, not simply the first
+        assert [(e["number"], e["title"], e["watched"]) for e in got["episodes"]] == [
+            (1, "Welcome to Margrave", True),
+            (2, "First Dance", False),
+        ]
+        assert got["episodes"][1]["progress"] == 24.0  # 12 of its 50 minutes
+        await ws.send_json({"id": 5, "type": "cleanyourtv/series", "entry_id": entry.entry_id, "series_id": "s1", "season_id": "se2"})
+        assert (await ws.receive_json())["result"]["episodes"] == []
+
         client = await hass_client_no_auth()
         resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/poster/s1?t={secret}")
         assert resp.status == 200 and await resp.read() == b"JPEGs1"

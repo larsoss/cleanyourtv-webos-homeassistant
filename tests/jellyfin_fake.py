@@ -13,7 +13,18 @@ USER = {"Id": "u1", "Name": "lars"}
 MOVIE = {"Id": "m1", "Name": "Heat", "Type": "Movie", "ProductionYear": 1995}
 SERIES = {"Id": "s1", "Name": "Reacher", "Type": "Series"}
 EPISODES = [
-    {"Id": "e1", "Name": "Welcome to Margrave", "Type": "Episode", "IndexNumber": 1, "ParentIndexNumber": 1},
+    {
+        "Id": "e1",
+        "Name": "Welcome to Margrave",
+        "Type": "Episode",
+        "IndexNumber": 1,
+        "ParentIndexNumber": 1,
+        "SeriesName": "Reacher",
+        "SeriesId": "s1",
+        "SeasonId": "se1",
+        "RunTimeTicks": 30_000_000_000,
+        "UserData": {"PlaybackPositionTicks": 0, "Played": True},  # watched to the end
+    },
     {
         "Id": "e2",
         "Name": "First Dance",
@@ -22,6 +33,7 @@ EPISODES = [
         "ParentIndexNumber": 1,
         "SeriesName": "Reacher",
         "SeriesId": "s1",
+        "SeasonId": "se1",
         "RunTimeTicks": 30_000_000_000,
         "UserData": {"PlaybackPositionTicks": 7_200_000_000, "Played": False},  # 12 minutes in
     },
@@ -58,6 +70,7 @@ class JellyfinFake:
         app.router.add_get("/Items/{id}", self._item)
         app.router.add_get("/Items/{id}/Images/Primary", self._poster)
         app.router.add_get("/Shows/{sid}/Episodes", self._episodes)
+        app.router.add_get("/Shows/{sid}/Seasons", self._seasons)
         app.router.add_get("/Sessions", self._sessions)
         app.router.add_post("/Sessions/{id}/Playing", self._playing)
         self._runner = web.AppRunner(app)
@@ -112,9 +125,17 @@ class JellyfinFake:
 
     async def _episodes(self, request: web.Request) -> web.Response:
         self.calls.append("Episodes")
-        season = request.query.get("season")
+        season, season_id = request.query.get("season"), request.query.get("seasonId")
+        if season_id is not None:  # the card asks by the season's id
+            return web.json_response({"Items": EPISODES if season_id in ("", "se1") else []})
         items = EPISODES if season in (None, "", "1") else []
         return web.json_response({"Items": items})
+
+    async def _seasons(self, request: web.Request) -> web.Response:
+        self.calls.append("Seasons")
+        return web.json_response(
+            {"Items": [{"Id": "se1", "Name": "Season 1", "IndexNumber": 1}, {"Id": "se2", "Name": "Season 2", "IndexNumber": 2}]}
+        )
 
     async def _sessions(self, request: web.Request) -> web.Response:
         self.calls.append("Sessions")

@@ -273,6 +273,8 @@
           list: kind => card._hass.callWS({ type: 'cleanyourtv/list', entry_id: info.entry_id, kind }),
           library: () => card._hass.callWS({ type: 'cleanyourtv/library', entry_id: info.entry_id }),
           play: item_id => card._hass.callWS({ type: 'cleanyourtv/play', entry_id: info.entry_id, item_id }),
+          series: (series_id, season_id) =>
+            card._hass.callWS({ type: 'cleanyourtv/series', entry_id: info.entry_id, series_id, season_id: season_id || '' }),
           lang: () => String((card._hass.locale && card._hass.locale.language) || card._hass.language || 'en').slice(0, 2),
           wake: () => card._hass.callService('media_player', 'turn_on', { entity_id: entity }),
           onChange: cb => card._listeners.push(cb),

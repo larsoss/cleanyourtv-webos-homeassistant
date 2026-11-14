@@ -43,6 +43,8 @@ def row(item: dict[str, Any]) -> dict[str, Any]:
         "title": str(item.get("Name") or ""),
         "sub": "",
         "poster": str(item.get("Id") or ""),
+        "series": "",  # the series an episode belongs to, so the card can ask for its seasons
+        "season_id": "",  # and the season that episode is in, so the card opens on it
         "seconds": done // TICKS_S,
         "minutes_left": max(0, (total - done) // TICKS_S // 60) if total else 0,
         "progress": round(min(100.0, done / total * 100), 1) if total and done else 0.0,
@@ -52,10 +54,27 @@ def row(item: dict[str, Any]) -> dict[str, Any]:
         at = f"S{season:02d}E{number:02d}" if isinstance(season, int) and isinstance(number, int) else ""
         out["title"] = str(item.get("SeriesName") or out["title"])
         out["sub"] = " - ".join(p for p in (at, str(item.get("Name") or "")) if p)
-        out["poster"] = str(item.get("SeriesId") or out["id"])
+        out["poster"] = out["series"] = str(item.get("SeriesId") or out["id"])
+        out["season_id"] = str(item.get("SeasonId") or "")
     else:
         out["sub"] = str(item.get("ProductionYear") or "")
     return out
+
+
+def episode_row(item: dict[str, Any]) -> dict[str, Any]:
+    """One episode as the card's list reads it: its number, its name, how far it got and whether it was watched."""
+    data = item.get("UserData") or {}
+    done = int(data.get("PlaybackPositionTicks") or 0)
+    total = int(item.get("RunTimeTicks") or 0)
+    number = item.get("IndexNumber")
+    return {
+        "id": str(item.get("Id") or ""),
+        "number": number if isinstance(number, int) else 0,
+        "title": str(item.get("Name") or ""),
+        "minutes": total // TICKS_S // 60 if total else 0,
+        "progress": round(min(100.0, done / total * 100), 1) if total and done else 0.0,
+        "watched": bool(data.get("Played")),
+    }
 
 
 def label(r: dict[str, Any]) -> str:

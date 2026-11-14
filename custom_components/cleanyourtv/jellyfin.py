@@ -9,6 +9,8 @@ the server, not to a person, so every call that is about what someone watched ca
   GET  /UserItems/Resume?userId=…                      films and episodes that were started and not finished
   GET  /Items/<id>?userId=…                            one item, to play it by its id
   GET  /Items/<id>/Images/Primary                      its poster
+  GET  /Shows/<id>/Seasons?userId=…                    the seasons of a series
+  GET  /Shows/<id>/Episodes?userId=…&seasonId=…        the episodes of one season
   GET  /Shows/<id>/Episodes?userId=…&season=…          an episode by its number, and the first unwatched one
   GET  /Sessions                                       what is signed in; the TV's app is one of these while it is open
   POST /Sessions/<id>/Playing?playCommand=PlayNow      play it there, from a position in ticks (10 000 000 of them to a second)
@@ -187,6 +189,17 @@ class Jellyfin:
                 continue
             out[key] = [i for i in (got or {}).get("Items") or [] if i.get("Id")]
         return out
+
+    async def async_seasons(self, series_id: str) -> list[dict[str, Any]]:
+        """The seasons of a series, as the card's chips."""
+        out = await self._get(f"/Shows/{quote(series_id)}/Seasons", userId=self.user_id, fields="UserData")
+        return [i for i in (out or {}).get("Items") or [] if i.get("Id")]
+
+    async def async_season_episodes(self, series_id: str, season_id: str = "") -> list[dict[str, Any]]:
+        """The episodes of one season of a series, in order."""
+        more = {"seasonId": season_id} if season_id else {}
+        out = await self._get(f"/Shows/{quote(series_id)}/Episodes", userId=self.user_id, fields="UserData", **more)
+        return [i for i in (out or {}).get("Items") or [] if i.get("Id")]
 
     async def async_item(self, item_id: str) -> dict[str, Any] | None:
         """One item by its id, with where it was left."""

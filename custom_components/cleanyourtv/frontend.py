@@ -7,6 +7,7 @@ The page inside the card asks Home Assistant over its WebSocket API:
   cleanyourtv/list    {entry_id, kind}           -> the apps, the inputs or the Live TV channels, as the Phone remote's page reads them
   cleanyourtv/library {entry_id}                 -> what there is to carry on watching: series and films, with their posters
   cleanyourtv/play    {entry_id, item_id}       -> play one of those on the TV
+  cleanyourtv/series  {entry_id, series_id}     -> the seasons of a series and the episodes of one of them
 Pictures (channel logos, app icons, Jellyfin posters) are <img> tags, which cannot carry Home Assistant's token: they are served at
 /api/cleanyourtv/<entry_id>/... with the entry's own secret in ?t=, which only a signed-in user gets from cleanyourtv/card.
 """
@@ -50,6 +51,7 @@ async def async_setup_frontend(hass: HomeAssistant, version: str) -> None:
     websocket_api.async_register_command(hass, ws_tvs)
     websocket_api.async_register_command(hass, ws_library)
     websocket_api.async_register_command(hass, ws_play)
+    websocket_api.async_register_command(hass, ws_series)
     hass.http.register_view(CytvPictureView())
 
 
@@ -154,6 +156,54 @@ async def ws_library(hass: HomeAssistant, connection: websocket_api.ActiveConnec
             "updated": lib.updated.isoformat() if lib.updated else "",
         },
     )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "cleanyourtv/series",
+        vol.Required("entry_id"): str,
+        vol.Required("series_id"): str,
+        vol.Optional("season_id", default=""): str,
+    }
+)
+@websocket_api.async_response
+async def ws_series(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The seasons of a series and the episodes of one of them, so a series can be opened and an episode picked."""
+    from .jellyfin import JellyfinError
+    from .library import episode_row
+    from .play import jellyfin_of
+
+    entry = _entry(hass, msg["entry_id"])
+    jf = jellyfin_of(hass, entry) if entry else None
+    if entry is None or jf is None:
+        connection.send_error(msg["id"], "not_found", "no Jellyfin server for this TV")
+        return
+    try:
+        seasons = await jf.async_seasons(msg["series_id"])
+        chosen = msg["season_id"] or _first_season(entry, msg["series_id"], seasons)
+        episodes = await jf.async_season_episodes(msg["series_id"], chosen)
+    except JellyfinError as err:
+        connection.send_result(msg["id"], {"error": str(err), "seasons": [], "episodes": []})
+        return
+    connection.send_result(
+        msg["id"],
+        {
+            "error": "",
+            "season": chosen,
+            "seasons": [{"id": str(s["Id"]), "number": s.get("IndexNumber"), "name": str(s.get("Name") or "")} for s in seasons],
+            "episodes": [episode_row(e) for e in episodes],
+        },
+    )
+
+
+def _first_season(entry: Any, series_id: str, seasons: list[dict[str, Any]]) -> str:
+    """Which season to open: the one of the episode you have to watch next, else the first."""
+    lib = entry.runtime_data.library
+    if lib:
+        for r in lib.series:
+            if r.get("series") == series_id and r.get("season_id"):
+                return str(r["season_id"])
+    return str(seasons[0]["Id"]) if seasons else ""
 
 
 @websocket_api.websocket_command({vol.Required("type"): "cleanyourtv/play", vol.Required("entry_id"): str, vol.Required("item_id"): str})

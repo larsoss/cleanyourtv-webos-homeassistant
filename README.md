@@ -187,9 +187,10 @@ data:
 
 Two things appear by themselves as soon as the server is set up, so there is no YAML to write:
 
-- **A "Watch" tab in the remote card** (and on the remote page): the episode to watch next of every series and the films you
-  started, as posters with how far you got. Tap one and it plays — the TV is turned on if it was off. The posters come through Home
-  Assistant, so the server's address and key stay out of the browser and the tab also works from outside the house.
+- **A "Watch" tab in the remote card** (and on the remote page): **Series** or **Films**, as posters of one size with how far you
+  got. A film plays at a tap. A series opens on its seasons, where you pick an episode — or press the button at the top to carry on
+  with the one you were on. The TV is turned on if it was off. The posters come through Home Assistant, so the server's address and
+  key stay out of the browser and the tab also works from outside the house.
 - **A "Carry on watching" dropdown** (`select.<your tv>_continue_watching`): the same list as one line each, for a dashboard, a
   button or a voice command. Nothing stays chosen, so the same title can be picked again.
 
