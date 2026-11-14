@@ -155,3 +155,7 @@ play:
           min: 0
           max: 999
           mode: box
+    resume:
+      default: true
+      selector:
+        boolean:

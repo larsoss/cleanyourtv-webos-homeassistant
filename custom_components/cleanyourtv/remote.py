@@ -69,6 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry, add: Ad
             vol.Required("title"): vol.All(cv.string, vol.Length(min=1, max=120)),
             vol.Optional("season"): vol.All(vol.Coerce(int), vol.Range(0, 99)),
             vol.Optional("episode"): vol.All(vol.Coerce(int), vol.Range(0, 999)),
+            vol.Optional("resume", default=True): cv.boolean,
         },
         "async_play_title",
     )
@@ -184,11 +185,11 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="picture_too_large")
         await self._do(self._client.async_notify(title, message, seconds, position, image, image_type))
 
-    async def async_play_title(self, title: str, season: int | None = None, episode: int | None = None) -> None:
+    async def async_play_title(self, title: str, season: int | None = None, episode: int | None = None, resume: bool = True) -> None:
         """Put a series or film on: find it on the Jellyfin server, open the app on the TV and play it there."""
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-        from .jellyfin import Jellyfin, JellyfinAuthError, JellyfinError
+        from .jellyfin import Jellyfin, JellyfinAuthError, JellyfinError, resume_ticks
 
         o = self._entry.options
         if not (o.get(CONF_JF_URL) and o.get(CONF_JF_KEY)):
@@ -196,8 +197,9 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
         jf = Jellyfin(async_get_clientsession(self.hass), o[CONF_JF_URL], o[CONF_JF_KEY], o.get(CONF_JF_USER, ""))
         try:
             item = await self._find(jf, title, season, episode)
+            ticks = resume_ticks(item) if resume else 0
             session = await self._tv_session(jf, o.get(CONF_JF_APP) or DEFAULT_JF_APP)
-            await jf.async_play(session["Id"], item["Id"])
+            await jf.async_play(session["Id"], item["Id"], ticks)
         except JellyfinAuthError as err:
             raise HomeAssistantError(str(err)) from err
         except JellyfinError as err:
@@ -234,7 +236,10 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
             session = jf.tv_session(await jf.async_sessions(), model, host)
             if session:
                 return session
-        raise HomeAssistantError(f"the Jellyfin app on the TV did not sign in to the server within {PLAY_WAIT_S} seconds")
+        raise HomeAssistantError(
+            f"{app} was opened on the TV but did not sign in to the Jellyfin server within {PLAY_WAIT_S} seconds; "
+            "the app has to be signed in to the same server, and has to be a client the server can play on"
+        )
 
     async def _fetch_picture(self, url: str) -> tuple[bytes, str]:
         """A picture from an address: one of Home Assistant itself (/api/..., /local/...) or of the network."""

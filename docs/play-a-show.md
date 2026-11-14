@@ -1,7 +1,9 @@
 # Research: "put on Reacher" from Home Assistant
 
 couch-tv lets you ask for a show by name and starts it in the right app. This page looks at what that takes on a rooted LG TV with
-CleanYourTV, app by app, and proposes how to build it in this integration. Nothing here is built yet.
+CleanYourTV, app by app, and proposes how to build it in this integration.
+
+**Phase 1 is built**: `cleanyourtv.play` plays a title from your own Jellyfin server. Phases 2 and 3 are not.
 
 ## Two steps
 
@@ -17,6 +19,23 @@ CleanYourTV, app by app, and proposes how to build it in this integration. Nothi
 | **Netflix** | `applicationManager/launch` with `params: {contentTarget: "https://www.netflix.com/watch/<id>"}` (the id of a title or an episode). | **Works** once the Netflix id is known. |
 | **YouTube** | `params: {contentTarget: "v=<video id>"}`. | **Works** for a video. |
 | **Prime Video, Disney+, Videoland, NPO Start, SkyShowtime, NLZIET, Pathé Thuis** | No documented launch parameters. Reports say a web link as `contentTarget` does not work for Prime Video and Disney+. | **Unknown**: to try on the TV, one app at a time. Fallback: open the app on its search with the title typed in (our add-on can type), which leaves one press. |
+
+## Which Jellyfin app on the TV
+
+`cleanyourtv.play` does not talk to the app at all: it asks the Jellyfin *server* to play something on the session the app has open.
+So any client works as long as it reports to the server that it takes media control (`SupportsMediaControl` in what it posts to
+`POST /Sessions/Capabilities/Full`) and acts on the server's `Play` message. The app to open is an option
+(`jellyfin_app`, the default is `org.jellyfin.webos`).
+
+| Client on the TV | App id | Takes a play command? |
+|---|---|---|
+| **Jellyfin for webOS** (official) | `org.jellyfin.webos` | **Yes** — it is the Jellyfin web client. Tested on the TV. |
+| **Litefin** | `org.litefin.app` | **Yes**, by its code: it posts `SupportsMediaControl: true` and handles `Play` → `PlayNow` with `StartPositionTicks` ([WebSocketHandler.js](https://github.com/MoazSalem/litefin/blob/main/src/api/WebSocketHandler.js)). Not tested here. |
+| **Moonfin** | `org.moonfin.webos` | **Probably**: it carries a `services/remoteControl.js` and posts `SupportsMediaControl`. Not tested here. |
+| **Breezyfin** | — | **Probably not**: nothing in its code posts `SupportsMediaControl`, so the server would not offer it as a target. |
+
+The quickest test for any of them: open the client on the TV, then on another device open Jellyfin web, press the cast icon and see
+whether the TV is listed. If it is, this action can play on it.
 
 ## Step 1: from a title to an app
 

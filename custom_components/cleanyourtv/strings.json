@@ -295,6 +295,10 @@
         "episode": {
           "name": "Episode",
           "description": "Only for a series. Without it, the first episode of that season."
+        },
+        "resume": {
+          "name": "Carry on",
+          "description": "Start where you left off. Off, it starts at the beginning."
         }
       }
     }

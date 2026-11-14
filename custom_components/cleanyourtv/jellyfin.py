@@ -8,7 +8,7 @@ the server, not to a person, so every call that is about what someone watched ca
   GET  /Shows/NextUp?userId=…&seriesId=…               the episode to watch next of a series
   GET  /Shows/<id>/Episodes?userId=…&season=…          an episode by its number, and the first unwatched one
   GET  /Sessions                                       what is signed in; the TV's app is one of these while it is open
-  POST /Sessions/<id>/Playing?playCommand=PlayNow      play it there
+  POST /Sessions/<id>/Playing?playCommand=PlayNow      play it there, from a position in ticks (10 000 000 of them to a second)
 
 This module has no Home Assistant imports, so it can be tested on its own.
 """
@@ -28,6 +28,16 @@ TIMEOUT_S = 15
 SEARCH_KINDS = "Series,Movie"
 # a last resort when the address and the name do not tell: clients that only exist on a TV ("jellyfin" is in every client's name)
 TV_CLIENTS = ("webos", "litefin", "moonfin", "lg ")
+
+
+def resume_ticks(item: dict[str, Any] | None) -> int:
+    """Where this was left, in Jellyfin's ticks; 0 when it was never started or was watched to the end."""
+    data = (item or {}).get("UserData") or {}
+    try:
+        ticks = int(data.get("PlaybackPositionTicks") or 0)
+    except (TypeError, ValueError):
+        return 0
+    return 0 if ticks <= 0 or data.get("Played") else ticks
 
 
 def _ip_of(endpoint: Any) -> str:
@@ -113,7 +123,7 @@ class Jellyfin:
             includeItemTypes=SEARCH_KINDS,
             recursive="true",
             limit=limit,
-            fields="ProviderIds",
+            fields="ProviderIds,UserData",
         )
         items = [i for i in (out or {}).get("Items") or [] if i.get("Id")]
         want = title.strip().lower()
@@ -123,17 +133,17 @@ class Jellyfin:
 
     async def async_next_up(self, series_id: str) -> dict[str, Any] | None:
         """The episode to watch next of a series (where you stopped, or the first one)."""
-        out = await self._get("/Shows/NextUp", userId=self.user_id, seriesId=series_id, limit=1)
+        out = await self._get("/Shows/NextUp", userId=self.user_id, seriesId=series_id, limit=1, fields="UserData")
         items = (out or {}).get("Items") or []
         if items:
             return items[0]
-        out = await self._get(f"/Shows/{series_id}/Episodes", userId=self.user_id, limit=1, startIndex=0)
+        out = await self._get(f"/Shows/{series_id}/Episodes", userId=self.user_id, limit=1, startIndex=0, fields="UserData")
         items = (out or {}).get("Items") or []
         return items[0] if items else None
 
     async def async_episode(self, series_id: str, season: int | None, episode: int | None) -> dict[str, Any] | None:
         """One episode by its numbers; without an episode number the first of that season."""
-        out = await self._get(f"/Shows/{series_id}/Episodes", userId=self.user_id, season=season, fields="")
+        out = await self._get(f"/Shows/{series_id}/Episodes", userId=self.user_id, season=season, fields="UserData")
         items = (out or {}).get("Items") or []
         if episode is None:
             return items[0] if items else None
@@ -170,6 +180,9 @@ class Jellyfin:
                 return s
         return None
 
-    async def async_play(self, session_id: str, item_id: str) -> None:
-        """Play it on that session, from the start or where it was left."""
-        await self._call("POST", f"/Sessions/{session_id}/Playing", {"playCommand": "PlayNow", "itemIds": item_id})
+    async def async_play(self, session_id: str, item_id: str, ticks: int = 0) -> None:
+        """Play it on that session, from the start or from a position in ticks."""
+        params: dict[str, Any] = {"playCommand": "PlayNow", "itemIds": item_id}
+        if ticks > 0:
+            params["startPositionTicks"] = ticks
+        await self._call("POST", f"/Sessions/{session_id}/Playing", params)

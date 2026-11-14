@@ -329,13 +329,17 @@ async def test_play_a_title(hass: HomeAssistant, addon) -> None:
         signer = asyncio.create_task(sign_in_when_opened())
         await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "reacher"}, blocking=True)
         await signer
-        assert jf.played == [("tv", "e2")]
+        assert jf.played == [("tv", "e2", 7_200_000_000)]  # and it carries on where it was left
 
         # a film plays straight away, and a season and episode pick that one
         await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Heat"}, blocking=True)
-        assert jf.played[-1] == ("tv", "m1")
+        assert jf.played[-1] == ("tv", "m1", 0)
         await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "season": 1, "episode": 1}, blocking=True)
-        assert jf.played[-1] == ("tv", "e1")
+        assert jf.played[-1] == ("tv", "e1", 0)
+
+        # resume: false starts the half-watched episode at the beginning again
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "resume": False}, blocking=True)
+        assert jf.played[-1] == ("tv", "e2", 0)
 
         # a title the server does not have, and an episode that is not there
         with pytest.raises(ServiceValidationError):

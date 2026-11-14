@@ -295,6 +295,10 @@
         "episode": {
           "name": "Aflevering",
           "description": "Alleen bij een serie. Zonder dit nummer de eerste aflevering van dat seizoen."
+        },
+        "resume": {
+          "name": "Verder kijken",
+          "description": "Begin waar je gebleven was. Uit begint hij bij het begin."
         }
       }
     }

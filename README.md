@@ -180,7 +180,11 @@ target:
   entity_id: remote.lg_tv_remote
 data:
   title: Reacher        # season: 1 and episode: 3 pick one; without them, the episode to watch next
+  resume: true          # off starts at the beginning instead of where you stopped
 ```
+
+Any Jellyfin client the server can play on works, not just the official app — Litefin and Moonfin report that they take media
+control. Which one is opened is the `jellyfin_app` option (`org.jellyfin.webos`, `org.litefin.app`, `org.moonfin.webos`).
 
 Only Jellyfin for now. What it takes to do the same for Plex, Netflix and the other apps is written down in
 [docs/play-a-show.md](docs/play-a-show.md).

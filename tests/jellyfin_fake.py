@@ -1,7 +1,8 @@
 """A small stand-in for a Jellyfin server: just the calls the play action makes.
 
 It answers like Jellyfin does for one user, one film, one series with two episodes, and a session of the TV's app that appears only
-after the app has been "opened" (open_app()), so the waiting of the play action is exercised.
+after the app has been "opened" (app_open), so the waiting of the play action is exercised. Episode 2 was half watched, so the
+position the action sends along is exercised too.
 """
 
 from __future__ import annotations
@@ -13,7 +14,14 @@ MOVIE = {"Id": "m1", "Name": "Heat", "Type": "Movie"}
 SERIES = {"Id": "s1", "Name": "Reacher", "Type": "Series"}
 EPISODES = [
     {"Id": "e1", "Name": "Welcome to Margrave", "Type": "Episode", "IndexNumber": 1, "ParentIndexNumber": 1},
-    {"Id": "e2", "Name": "First Dance", "Type": "Episode", "IndexNumber": 2, "ParentIndexNumber": 1},
+    {
+        "Id": "e2",
+        "Name": "First Dance",
+        "Type": "Episode",
+        "IndexNumber": 2,
+        "ParentIndexNumber": 1,
+        "UserData": {"PlaybackPositionTicks": 7_200_000_000, "Played": False},  # 12 minutes in
+    },
 ]
 NEXT_UP = EPISODES[1]
 
@@ -24,7 +32,7 @@ class JellyfinFake:
     def __init__(self) -> None:
         self.key = "test-key"
         self.app_open = False  # no session of the TV's app until the app is opened
-        self.played: list[tuple[str, str]] = []  # (session id, item id)
+        self.played: list[tuple[str, str, int]] = []  # (session id, item id, position in ticks)
         self.calls: list[str] = []
         self._runner: web.AppRunner | None = None
         self.url = ""
@@ -100,5 +108,5 @@ class JellyfinFake:
 
     async def _playing(self, request: web.Request) -> web.Response:
         self.calls.append("Playing")
-        self.played.append((request.match_info["id"], request.query.get("itemIds", "")))
+        self.played.append((request.match_info["id"], request.query.get("itemIds", ""), int(request.query.get("startPositionTicks") or 0)))
         return web.Response(status=204)
