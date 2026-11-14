@@ -356,9 +356,7 @@ async def test_play_a_title(hass: HomeAssistant, addon, hass_ws_client, hass_cli
         await until(lambda: st(hass, sel) and st(hass, sel).attributes.get("options"))
         assert st(hass, sel).attributes["options"] == ["Reacher - S01E02 - First Dance", "Sicario - 2015"]
         assert st(hass, sel).state == "unknown"  # a list to start something, not a setting
-        await hass.services.async_call(
-            "select", "select_option", {"entity_id": sel, "option": "Sicario - 2015"}, blocking=True
-        )
+        await hass.services.async_call("select", "select_option", {"entity_id": sel, "option": "Sicario - 2015"}, blocking=True)
         assert jf.played[-1] == ("tv", "m2", 12_000_000_000)
         with pytest.raises(ServiceValidationError):
             await hass.services.async_call("select", "select_option", {"entity_id": sel, "option": "Gone"}, blocking=True)
