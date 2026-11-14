@@ -1,2 +1,5 @@
 pytest-homeassistant-custom-component
 ruff
+# what Home Assistant's camera needs: the show_notification test takes a camera snapshot
+PyTurboJPEG
+av
