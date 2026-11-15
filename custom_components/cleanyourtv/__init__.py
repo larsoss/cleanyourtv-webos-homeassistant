@@ -23,7 +23,7 @@ from .const import CONF_MAC, CONF_TOKEN, DOMAIN, LISTS_REFRESH_S
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BUTTON, Platform.MEDIA_PLAYER, Platform.REMOTE, Platform.SENSOR]
+PLATFORMS = [Platform.BUTTON, Platform.MEDIA_PLAYER, Platform.REMOTE, Platform.SELECT, Platform.SENSOR]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 SIGNAL_LISTS = f"{DOMAIN}_lists_{{}}"
@@ -38,6 +38,7 @@ class CytvData:
     inputs: list[dict[str, Any]] = field(default_factory=list)
     channels: list[dict[str, Any]] = field(default_factory=list)
     lists_task: asyncio.Task | None = None
+    library: Any = None  # a Library while a Jellyfin server is set up in the options
 
 
 type CytvConfigEntry = ConfigEntry[CytvData]
@@ -89,8 +90,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry) -> bool
         _on_change()
 
     from .frontend import card_secret
+    from .library import Library
 
     card_secret(hass, entry)
+    data.library = Library(hass, entry)
+    entry.async_on_unload(data.library.stop)
+    data.library.start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await _update_panel(hass, joining=entry)
     return True

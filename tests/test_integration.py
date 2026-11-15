@@ -97,7 +97,7 @@ async def test_pair_and_follow(hass: HomeAssistant, addon) -> None:
     await hass.services.async_call("media_player", "media_pause", {"entity_id": MP}, blocking=True)
     await addon.wait_for(lambda e: e == {"ev": "key", "k": "PAUSE"})
     await until(lambda: st(hass, MP).attributes.get("source_list"))
-    assert st(hass, MP).attributes["source_list"] == ["HDMI 1", "Netflix", "YouTube"]
+    assert st(hass, MP).attributes["source_list"] == ["HDMI 1", "Litefin", "Netflix", "YouTube"]
     await hass.services.async_call("media_player", "select_source", {"entity_id": MP, "source": "HDMI 1"}, blocking=True)
     await addon.wait_for(lambda e: e.get("ev") == "launch" and e["body"] == {"id": "com.webos.app.hdmi1"})
     await hass.services.async_call("remote", "send_command", {"entity_id": RM, "command": ["HOME", "text:abc"]}, blocking=True)
@@ -287,3 +287,114 @@ async def test_remote_card_backend(hass: HomeAssistant, addon, hass_ws_client, h
     await ws.send_json({"id": 11, "type": "get_panels"})
     assert (await ws.receive_json())["result"]["cleanyourtv-remote"]["title"] is None
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_play_a_title(hass: HomeAssistant, addon, hass_ws_client, hass_client_no_auth) -> None:
+    """Put a title on: the options take the server, the action finds it, opens the app on the TV and plays it there."""
+    from .jellyfin_fake import JellyfinFake
+
+    jf = await JellyfinFake().start()
+    try:
+        await addon.open_pairing()
+        r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        r = await hass.config_entries.flow.async_configure(
+            r["flow_id"], {CONF_HOST: "127.0.0.1", CONF_PORT: addon.port, CONF_DEVICE_NAME: "HA"}
+        )
+        assert r["type"] is FlowResultType.CREATE_ENTRY
+        entry = r["result"]
+        await hass.async_block_till_done()
+
+        # without a server the action says so
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher"}, blocking=True)
+
+        # the options: a wrong key is refused, the right one stores the user the server names
+        r = await hass.config_entries.options.async_init(entry.entry_id)
+        r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "jellyfin"})
+        assert r["step_id"] == "jellyfin"
+        r = await hass.config_entries.options.async_configure(r["flow_id"], {"jellyfin_url": jf.url, "jellyfin_key": "wrong"})
+        assert r["errors"] == {"base": "jellyfin_key"}
+        r = await hass.config_entries.options.async_configure(
+            r["flow_id"], {"jellyfin_url": jf.url + "/web/index.html", "jellyfin_key": jf.key, "jellyfin_app": "org.jellyfin.webos"}
+        )
+        assert r["type"] is FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+        assert entry.options["jellyfin_url"] == jf.url and entry.options["jellyfin_user"] == "u1"
+
+        await until(lambda: any(a["id"] == "org.litefin.app" for a in entry.runtime_data.apps))  # the TV's app list is in
+
+        # a series: the app is opened on the TV, and once it has signed in the episode to watch next plays on that session.
+        # the official app is chosen but is not on this TV, so the Litefin that is there is opened instead
+        async def sign_in_when_opened() -> None:
+            await addon.wait_for(lambda e: e.get("ev") == "launch" and e["body"].get("id") == "org.litefin.app", timeout=10)
+            jf.app_open = True
+
+        signer = asyncio.create_task(sign_in_when_opened())
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "reacher"}, blocking=True)
+        await signer
+        assert jf.played == [("tv", "e2", 7_200_000_000)]  # and it carries on where it was left
+
+        # a film plays straight away, and a season and episode pick that one
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Heat"}, blocking=True)
+        assert jf.played[-1] == ("tv", "m1", 0)
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "season": 1, "episode": 1}, blocking=True)
+        assert jf.played[-1] == ("tv", "e1", 0)
+
+        # resume: false starts the half-watched episode at the beginning again
+        await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "resume": False}, blocking=True)
+        assert jf.played[-1] == ("tv", "e2", 0)
+
+        # the "carry on watching" list and its select entity: the episode to watch next of every series, then the films that were
+        # started. Picking one plays it; nothing stays chosen, so the same one can be picked again.
+        lib = entry.runtime_data.library
+        await lib.async_refresh()
+        await hass.async_block_till_done()
+        assert [r["title"] for r in lib.series] == ["Reacher"]
+        assert [(r["title"], r["sub"], r["progress"]) for r in lib.movies] == [("Sicario", "2015", 20.0)]
+        assert lib.series[0]["poster"] == "s1" and lib.series[0]["sub"] == "S01E02 - First Dance"
+        sel = "select.127_0_0_1_continue_watching"
+        await until(lambda: st(hass, sel) and st(hass, sel).attributes.get("options"))
+        assert st(hass, sel).attributes["options"] == ["Reacher - S01E02 - First Dance", "Sicario - 2015"]
+        assert st(hass, sel).state == "unknown"  # a list to start something, not a setting
+        await hass.services.async_call("select", "select_option", {"entity_id": sel, "option": "Sicario - 2015"}, blocking=True)
+        assert jf.played[-1] == ("tv", "m2", 12_000_000_000)
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call("select", "select_option", {"entity_id": sel, "option": "Gone"}, blocking=True)
+
+        # a title the server does not have, and an episode that is not there
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Nothing"}, blocking=True)
+        with pytest.raises(ServiceValidationError):
+            await hass.services.async_call(DOMAIN, "play", {"entity_id": RM, "title": "Reacher", "season": 9}, blocking=True)
+        # the card's own way in: the list over the WebSocket, a poster through Home Assistant (so the key stays out of the browser),
+        # and playing one of them
+        ws = await hass_ws_client(hass)
+        await ws.send_json({"id": 1, "type": "cleanyourtv/card", "entity_id": MP})
+        secret = (await ws.receive_json())["result"]["secret"]
+        await ws.send_json({"id": 2, "type": "cleanyourtv/library", "entry_id": entry.entry_id})
+        got = (await ws.receive_json())["result"]
+        assert got["jellyfin"] is True and [r["id"] for r in got["series"]] == ["e2"] and [r["id"] for r in got["movies"]] == ["m2"]
+        await ws.send_json({"id": 3, "type": "cleanyourtv/play", "entry_id": entry.entry_id, "item_id": "m1"})
+        assert (await ws.receive_json())["result"]["ok"] is True
+        assert jf.played[-1] == ("tv", "m1", 0)
+        await ws.send_json({"id": 4, "type": "cleanyourtv/series", "entry_id": entry.entry_id, "series_id": "s1"})
+        got = (await ws.receive_json())["result"]
+        assert [s["id"] for s in got["seasons"]] == ["se1", "se2"]
+        assert got["season"] == "se1"  # the season of the episode to watch next, not simply the first
+        assert [(e["number"], e["title"], e["watched"]) for e in got["episodes"]] == [
+            (1, "Welcome to Margrave", True),
+            (2, "First Dance", False),
+        ]
+        assert got["episodes"][1]["progress"] == 24.0  # 12 of its 50 minutes
+        await ws.send_json({"id": 5, "type": "cleanyourtv/series", "entry_id": entry.entry_id, "series_id": "s1", "season_id": "se2"})
+        assert (await ws.receive_json())["result"]["episodes"] == []
+
+        client = await hass_client_no_auth()
+        resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/poster/s1?t={secret}")
+        assert resp.status == 200 and await resp.read() == b"JPEGs1"
+        resp = await client.get(f"/api/cleanyourtv/{entry.entry_id}/poster/s1?t=wrong")
+        assert resp.status == 401
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+    finally:
+        await jf.stop()

@@ -18,6 +18,11 @@
       "power_state": {
         "default": "mdi:television"
       }
+    },
+    "select": {
+      "continue_watching": {
+        "default": "mdi:play-box-multiple"
+      }
     }
   },
   "services": {
@@ -41,6 +46,9 @@
     },
     "show_notification": {
       "service": "mdi:message-image"
+    },
+    "play": {
+      "service": "mdi:play-box-multiple"
     }
   }
 }

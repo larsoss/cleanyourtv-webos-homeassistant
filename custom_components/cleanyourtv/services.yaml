@@ -132,3 +132,33 @@ show_notification:
             - bottom-left
             - bottom-center
             - bottom-right
+play:
+  target:
+    entity:
+      integration: cleanyourtv
+      domain: remote
+  fields:
+    title:
+      example: Reacher
+      selector:
+        text:
+    item_id:
+      advanced: true
+      selector:
+        text:
+    season:
+      selector:
+        number:
+          min: 0
+          max: 99
+          mode: box
+    episode:
+      selector:
+        number:
+          min: 0
+          max: 999
+          mode: box
+    resume:
+      default: true
+      selector:
+        boolean:

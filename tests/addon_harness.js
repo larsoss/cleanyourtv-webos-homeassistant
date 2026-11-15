@@ -77,7 +77,14 @@ const api = http.createServer((req, res) => {
         })
         .on('error', e => (say({ ev: 'notify', card, error: e.message }), j({ returnValue: true })));
     }
-    if (u === '/api/apps') return j({ apps: [{ id: 'netflix', title: 'Netflix' }, { id: 'youtube.leanback.v4', title: 'YouTube' }] });
+    if (u === '/api/apps')
+      return j({
+        apps: [
+          { id: 'netflix', title: 'Netflix' },
+          { id: 'youtube.leanback.v4', title: 'YouTube' },
+          { id: 'org.litefin.app', title: 'Litefin' }, // a Jellyfin client, but not the official one
+        ],
+      });
     if (u === '/api/inputs') return j({ devices: [{ appId: 'com.webos.app.hdmi1', label: 'HDMI 1', port: 1 }] });
     if (u === '/api/live/channels') return j({ channels: CH });
     if (u === '/api/live/state') return j({ fav: [], recent: ['key1'], failed: {} });

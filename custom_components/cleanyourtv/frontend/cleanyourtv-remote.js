@@ -66,6 +66,9 @@
         if (!head || !cv || !tabs || !head.offsetHeight) return 0;
         // while the rows are spread (fill) the buttons' block is as high as the room: the height measured before counts
         if (d.documentElement.classList.contains('fill')) return this._nat || 0;
+        // another tab is in front, so the Remote's buttons measure nothing: the card keeps the height the Remote needed instead of
+        // shrinking to its top and tab bars (the Apps, Live and Watch lists then have the room to scroll in)
+        if (!cv.offsetHeight) return this._nat || 0;
         const m = parseFloat(getComputedStyle(cv).marginTop) || 0;
         return (this._nat = Math.ceil(head.offsetHeight + cv.offsetHeight + m + 8 + tabs.offsetHeight));
       } catch (e) {
@@ -268,6 +271,11 @@
           power: () => attr().power_state || (attr().connected ? 'Active' : ''),
           action: m => card._hass.callWS({ type: 'cleanyourtv/action', entry_id: info.entry_id, action: m }),
           list: kind => card._hass.callWS({ type: 'cleanyourtv/list', entry_id: info.entry_id, kind }),
+          library: () => card._hass.callWS({ type: 'cleanyourtv/library', entry_id: info.entry_id }),
+          play: item_id => card._hass.callWS({ type: 'cleanyourtv/play', entry_id: info.entry_id, item_id }),
+          series: (series_id, season_id) =>
+            card._hass.callWS({ type: 'cleanyourtv/series', entry_id: info.entry_id, series_id, season_id: season_id || '' }),
+          lang: () => String((card._hass.locale && card._hass.locale.language) || card._hass.language || 'en').slice(0, 2),
           wake: () => card._hass.callService('media_player', 'turn_on', { entity_id: entity }),
           onChange: cb => card._listeners.push(cb),
         };

@@ -62,6 +62,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: CytvConfigEntry, add: Ad
         },
         "async_show_notification",
     )
+    platform.async_register_entity_service(
+        "play",
+        {
+            vol.Optional("title", default=""): vol.All(cv.string, vol.Length(max=120)),
+            vol.Optional("item_id", default=""): vol.All(cv.string, vol.Length(max=64)),
+            vol.Optional("season"): vol.All(vol.Coerce(int), vol.Range(0, 99)),
+            vol.Optional("episode"): vol.All(vol.Coerce(int), vol.Range(0, 999)),
+            vol.Optional("resume", default=True): cv.boolean,
+        },
+        "async_play_title",
+    )
 
 
 class CytvTVEntity(CytvEntity, RemoteEntity):
@@ -82,7 +93,7 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
             raise HomeAssistantError(str(err)) from err
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await turn_on(self)
+        await turn_on(self.hass, self._entry)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._do(self._client.async_power("standby"))
@@ -173,6 +184,16 @@ class CytvTVEntity(CytvEntity, RemoteEntity):
         if image and len(image) > NOTIFY_PICTURE_MAX:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="picture_too_large")
         await self._do(self._client.async_notify(title, message, seconds, position, image, image_type))
+
+    async def async_play_title(
+        self, title: str = "", item_id: str = "", season: int | None = None, episode: int | None = None, resume: bool = True
+    ) -> None:
+        """Put a series or film on: find it on the Jellyfin server, open the client on the TV and play it there."""
+        from .play import async_play
+
+        if not (title or item_id):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="nothing_to_play")
+        await async_play(self.hass, self._entry, title=title, item_id=item_id, season=season, episode=episode, resume=resume)
 
     async def _fetch_picture(self, url: str) -> tuple[bytes, str]:
         """A picture from an address: one of Home Assistant itself (/api/..., /local/...) or of the network."""
