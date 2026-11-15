@@ -27,19 +27,24 @@
     /* Series | Films */
     '#wa .waseg{display:flex;gap:4px;padding:4px;margin:4px 0 12px;border-radius:12px;background:rgba(255,255,255,.06)}' +
     '#wa .waseg button{flex:1;min-width:0;padding:8px 4px;border:0;border-radius:9px;background:transparent;cursor:pointer;' +
+    '-webkit-appearance:none;appearance:none;' +
     'font:600 13px/1 ui-sans-serif,system-ui;color:#9aa0b4;-webkit-tap-highlight-color:transparent}' +
     '#wa .waseg button.on{background:#ff8a5b;color:#16181f}' +
     /* the posters: every tile the same shape, whatever picture the server has */
     '#wa .wagrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}' +
-    '#wa .wac{position:relative;min-width:0;display:flex;flex-direction:column;gap:5px;padding:0;border:0;background:none;' +
-    'text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+    '#wa .wac{position:relative;display:block;min-width:0;max-width:100%;padding:0;border:0;background:none;overflow:hidden;' +
+    '-webkit-appearance:none;appearance:none;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
     '#wa .wap{display:block;position:relative;width:100%;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:#20222b;' +
     'box-shadow:0 2px 8px rgba(0,0,0,.25);transition:transform .12s ease}' +
     '#wa .wap img{width:100%;height:100%;object-fit:cover;display:block}' +
     '#wa .wac:active .wap{transform:scale(.97)}' +
     '#wa .wab{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(0,0,0,.45)}#wa .wab b{display:block;height:100%;background:#ff8a5b}' +
-    '#wa .wat{font:600 12.5px/1.25 ui-sans-serif,system-ui;color:#f4f5f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-    '#wa .was{font:500 11px/1.25 ui-sans-serif,system-ui;color:#9aa0b4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    /* the title may run to two lines and is cut there; the line under it stays on one. Both are blocks of their own, so a long name
+       is clipped by the tile instead of running into the one beside it */
+    '#wa .wat{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%;margin:5px 0 0;overflow:hidden;' +
+    'font:600 12.5px/1.25 ui-sans-serif,system-ui;color:#f4f5f7;min-height:2.5em}' +
+    '#wa .was{display:block;max-width:100%;margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+    'font:500 11px/1.25 ui-sans-serif,system-ui;color:#9aa0b4}' +
     '#wa .wamsg{font:500 13px/1.5 ui-sans-serif,system-ui;color:#9aa0b4;padding:18px 2px;text-align:center}' +
     '#wa .busy{position:relative}#wa .wac.busy .wap{opacity:.45}' +
     '#wa .busy:after{content:"";position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px;' +
@@ -53,21 +58,37 @@
     '#wa .wahead h3{flex:1;min-width:0;margin:0;font:700 16px/1.2 ui-sans-serif,system-ui;color:#f4f5f7;overflow:hidden;' +
     'text-overflow:ellipsis;white-space:nowrap}' +
     '#wa .wanext{display:block;width:100%;margin:0 0 12px;padding:11px 14px;border:0;border-radius:12px;background:#ff8a5b;' +
+    '-webkit-appearance:none;appearance:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
     'color:#16181f;font:700 13px/1.2 ui-sans-serif,system-ui;text-align:left;cursor:pointer}' +
     '#wa .wasea{display:flex;gap:6px;overflow-x:auto;padding:0 0 10px;-webkit-overflow-scrolling:touch}' +
     '#wa .wasea button{flex:none;padding:7px 12px;border:0;border-radius:999px;background:rgba(255,255,255,.08);color:#c9cde0;' +
     'font:600 12px/1 ui-sans-serif,system-ui;cursor:pointer;white-space:nowrap}' +
     '#wa .wasea button.on{background:#f4f5f7;color:#16181f}' +
-    '#wa .waep{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;margin:0 0 6px;border:0;' +
+    '#wa .waep{position:relative;display:block;width:100%;padding:9px 10px;margin:0 0 6px;border:0;overflow:hidden;' +
+    '-webkit-appearance:none;appearance:none;' +
     'border-radius:10px;background:rgba(255,255,255,.05);cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent}' +
+    '#wa .waer{display:flex;align-items:center;width:100%}' +
+    '#wa .waen{margin-right:10px}#wa .waem{margin-left:10px}' +
     '#wa .waep.seen{opacity:.55}#wa .waep:active{background:rgba(255,255,255,.12)}' +
     '#wa .waen{flex:none;width:26px;font:700 13px/1 ui-sans-serif,system-ui;color:#9aa0b4;text-align:right}' +
     '#wa .waet{flex:1;min-width:0;font:600 13px/1.3 ui-sans-serif,system-ui;color:#f4f5f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '#wa .waem{flex:none;font:500 11.5px/1 ui-sans-serif,system-ui;color:#9aa0b4}' +
     '#wa .waeb{position:absolute;left:10px;right:10px;bottom:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.12)}' +
     '#wa .waeb b{display:block;height:100%;border-radius:2px;background:#ff8a5b}' +
+    '.tabl{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     'html.light #wa .wat,html.light #wa .wahead h3,html.light #wa .waet{color:#16181f}' +
     'html.light #wa .wap{background:#e3e5ec}html.light #wa .waback{color:#16181f}';
+  /* a button does not cut its own text on every phone (on iOS a long name was clipped at both ends), and the name of a tab is a bare
+     text node in a column of flex, which no style can reach: each name goes in a span of its own, which carries the cutting. The
+     phone remote does this itself from its next version; a name that is already in a span is left alone. */
+  Array.prototype.forEach.call(document.querySelectorAll('.tabbar .tab'), function (b) {
+    var last = b.lastChild;
+    if (!last || last.nodeType !== 3 || !String(last.textContent).replace(/\s|\u200b/g, '')) return;
+    var sp = document.createElement('span');
+    sp.className = 'tabl';
+    sp.textContent = last.textContent;
+    b.replaceChild(sp, last);
+  });
   var st = document.createElement('style');
   st.textContent = CSS;
   document.head.appendChild(st);
@@ -177,10 +198,10 @@
         (got.episodes || [])
           .map(function (e) {
             return (
-              '<button class="waep' + (e.watched ? ' seen' : '') + '" data-item="' + esc(e.id) + '">' +
+              '<button class="waep' + (e.watched ? ' seen' : '') + '" data-item="' + esc(e.id) + '"><span class=waer>' +
               '<span class=waen>' + esc(e.number || '') + '</span>' +
               '<span class=waet>' + esc(e.title || W.ep.replace('%s', e.number || '')) + '</span>' +
-              '<span class=waem>' + esc(e.minutes ? W.min.replace('%s', e.minutes) : '') + '</span>' +
+              '<span class=waem>' + esc(e.minutes ? W.min.replace('%s', e.minutes) : '') + '</span></span>' +
               (e.progress ? '<i class=waeb><b style="width:' + Math.max(2, Math.min(100, e.progress)) + '%"></b></i>' : '') +
               '</button>'
             );
